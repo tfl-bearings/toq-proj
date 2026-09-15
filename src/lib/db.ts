@@ -169,7 +169,11 @@ export async function createSession(token: string, customerId: string) {
 }
 
 export async function getSession(token: string): Promise<Session | undefined> {
-  return find<Session>("sessions", token);
+  const rows = await database().query(
+    "SELECT data FROM sessions WHERE id = $1 OR data->>'token' = $1 LIMIT 1",
+    [token],
+  );
+  return rowValue<Session>(rows[0] as Row | undefined);
 }
 
 export async function deleteSession(token: string) {
@@ -269,7 +273,11 @@ export async function createAdminSession(token: string, adminId: string) {
 export async function getAdminSession(
   token: string,
 ): Promise<{ token: string; adminId: string; createdAt: string } | undefined> {
-  return find("admin_sessions", token);
+  const rows = await database().query(
+    "SELECT data FROM admin_sessions WHERE id = $1 OR data->>'token' = $1 LIMIT 1",
+    [token],
+  );
+  return rowValue(rows[0] as Row | undefined);
 }
 
 export async function deleteAdminSession(token: string) {
