@@ -1,0 +1,424 @@
+/* Operator console styles — a denser desktop layout, separate from the
+   mobile customer app. Prefix: adm- */
+
+.adm-shell {
+  min-height: 100vh;
+  background: #f4f6f8;
+  color: #1a222b;
+}
+
+.adm-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 20px;
+  height: 56px;
+  background: #0f2233;
+  color: #fff;
+}
+.adm-topbar .adm-brand {
+  font-weight: 800;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.adm-nav {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+}
+.adm-nav a {
+  color: #b8c6d3;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.adm-nav a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.adm-nav a.active {
+  background: var(--mloan-primary);
+  color: var(--mloan-on-primary);
+}
+.adm-topbar form {
+  margin: 0;
+}
+.adm-logout {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: #fff;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.adm-user {
+  font-size: 12px;
+  color: #9fb1c1;
+  white-space: nowrap;
+}
+
+.adm-main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 22px 20px 60px;
+}
+.adm-main h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+.adm-lead {
+  color: #5c6b78;
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+/* stat tiles */
+.adm-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.adm-card {
+  background: #fff;
+  border: 1px solid #e4e9ed;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(20, 39, 54, 0.04);
+}
+.adm-card b {
+  display: block;
+  font-size: 26px;
+  line-height: 1.1;
+}
+.adm-card small {
+  color: #6b7883;
+  font-size: 12px;
+}
+.adm-card.alert b {
+  color: #b25e00;
+}
+
+/* section */
+.adm-section {
+  background: #fff;
+  border: 1px solid #e4e9ed;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+.adm-section > h2 {
+  font-size: 14px;
+  margin: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eef1f4;
+  background: #fbfcfd;
+}
+
+/* tables */
+.adm-table-wrap {
+  overflow-x: auto;
+}
+table.adm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.adm-table th,
+.adm-table td {
+  text-align: left;
+  padding: 11px 14px;
+  border-bottom: 1px solid #eef1f4;
+  white-space: nowrap;
+}
+.adm-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #7c8894;
+  background: #fbfcfd;
+}
+.adm-table tr:last-child td {
+  border-bottom: 0;
+}
+.adm-table td.wrap {
+  white-space: normal;
+}
+.adm-mono {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/* status badges */
+.adm-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.adm-badge.due {
+  background: #fff4ce;
+  color: #886200;
+}
+.adm-badge.overdue {
+  background: #fde8e8;
+  color: #b42318;
+}
+.adm-badge.review {
+  background: #eaf6fc;
+  color: #0a6aa1;
+}
+.adm-badge.paid,
+.adm-badge.success {
+  background: #e9f8ef;
+  color: #17824f;
+}
+.adm-badge.failed {
+  background: #fff0ef;
+  color: #b72c23;
+}
+
+/* action buttons */
+.adm-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.adm-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 13px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.adm-btn-approve {
+  background: #17824f;
+  color: #fff;
+}
+.adm-btn-reject {
+  background: #fff;
+  color: #b72c23;
+  border: 1px solid #f0c1bd;
+}
+.adm-btn-primary {
+  background: var(--mloan-primary);
+  color: var(--mloan-on-primary);
+}
+.adm-reject-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+}
+.adm-reject-form input {
+  border: 1px solid #dfe5e8;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 12px;
+  min-width: 150px;
+}
+
+.adm-empty {
+  padding: 26px 16px;
+  text-align: center;
+  color: #6b7883;
+}
+
+/* login */
+.adm-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f2233;
+  padding: 20px;
+}
+.adm-login-card {
+  width: min(380px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 26px 24px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+.adm-login-card h1 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+.adm-login-card p.sub {
+  color: #5c6b78;
+  font-size: 13px;
+  margin: 0 0 18px;
+}
+.adm-field {
+  display: block;
+  margin-bottom: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #303840;
+}
+.adm-field input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #dfe5e8;
+  border-radius: 9px;
+  padding: 11px;
+  font-size: 15px;
+}
+.adm-submit {
+  width: 100%;
+  border: 0;
+  border-radius: 9px;
+  background: var(--mloan-primary);
+  color: var(--mloan-on-primary);
+  font-weight: 800;
+  font-size: 15px;
+  padding: 12px;
+  cursor: pointer;
+}
+.adm-error {
+  background: #fff0f0;
+  color: #a12222;
+  border: 1px solid #ffd4d4;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.adm-ok {
+  background: #eaf8ee;
+  color: #1f7b3e;
+  border: 1px solid #cbead4;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+/* settings form */
+.adm-form-grid {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.adm-form-grid .adm-field input[readonly] {
+  background: #f2f5f7;
+}
+.adm-form-foot {
+  padding: 0 16px 16px;
+}
+.adm-note {
+  color: #6b7883;
+  font-size: 12px;
+  padding: 0 16px 16px;
+}
+
+
+/* loan origination: application review rows, new-loan form selects */
+.adm-badge.approved { background: #e9f8ef; color: #17824f; }
+.adm-badge.rejected { background: #fff0ef; color: #b72c23; }
+.adm-badge.pending { background: #eaf6fc; color: #0a6aa1; }
+
+.adm-review-item {
+  padding: 14px 16px;
+  border-bottom: 1px solid #eef1f4;
+}
+.adm-review-item:last-child { border-bottom: 0; }
+.adm-review-head { font-size: 14px; margin-bottom: 3px; }
+.adm-review-when { color: #7c8894; font-size: 12px; margin-left: 8px; }
+.adm-review-req { color: #45525d; font-size: 13px; margin-bottom: 12px; }
+
+.adm-approve-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+.adm-mini-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #5c6b78;
+}
+.adm-mini-field input,
+.adm-mini-field select {
+  border: 1px solid #dfe5e8;
+  border-radius: 8px;
+  padding: 8px 9px;
+  font-size: 13px;
+  min-width: 120px;
+  background: #fff;
+}
+.adm-field select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #dfe5e8;
+  border-radius: 9px;
+  padding: 11px;
+  font-size: 15px;
+  background: #fff;
+}
+.adm-newloan-link {
+  float: right;
+  background: var(--mloan-primary);
+  color: var(--mloan-on-primary);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 8px;
+}
+
+
+/* theme color picker in settings */
+.adm-theme { padding: 0 16px 4px; }
+.adm-swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.adm-swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #d7dde2;
+  cursor: pointer;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.adm-swatch.active { box-shadow: 0 0 0 2px #0f2233; }
+.adm-theme-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.adm-color-input { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.adm-color-input input[type="color"] {
+  width: 44px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #dfe5e8;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+.adm-theme-preview {
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+}

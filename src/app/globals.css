@@ -1,0 +1,463 @@
+/* toq-app UI — ported from the reference mobile-loan theme, restyled as an honest credit-wallet app. */
+:root{--mloan-primary:#66c4ff;--mloan-accent:#17a75a;--mloan-bg:#f3f5f7;--mloan-text:#17212b;--mloan-muted:#7c8793;--mloan-line:#e8ecef;--mloan-radius:12px;--mloan-shadow:0 12px 34px rgba(0,0,0,.12)}
+*{box-sizing:border-box}html{background:#e9edf0}body.mloan-mobile-theme{margin:0;background:#e9edf0;color:var(--mloan-text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;line-height:1.45}.mloan-app-shell{position:relative;width:100%;max-width:430px;min-height:100vh;margin:0 auto;background:#fff;box-shadow:var(--mloan-shadow);overflow:hidden}.mloan-topbar{position:sticky;top:0;z-index:20;height:58px;background:var(--mloan-primary);color:#fff;display:grid;grid-template-columns:42px 1fr 42px;align-items:center;padding:0 10px}.mloan-brand{grid-column:2;font-size:17px;font-weight:700;letter-spacing:.1px}.mloan-back,.mloan-top-avatar{color:#fff;text-decoration:none;text-align:center;font-size:30px;line-height:1}.mloan-top-avatar{grid-column:3;font-size:20px;background:#fff;color:var(--mloan-primary);width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;margin-left:auto}.mloan-main{min-height:calc(100vh - 58px);padding-bottom:82px}.mloan-page-content{padding:0}.mloan-page-content>section:not(.mloan-hero),.mloan-page-content>.mloan-list-stack,.mloan-page-content>.mloan-tabs,.mloan-page-content>.mloan-tiny-note,.mloan-page-content>.mloan-order-list,.mloan-page-content>.mloan-alert,.mloan-page-content>.mloan-repayment-form,.mloan-page-content>.mloan-profile-details,.mloan-page-content>.mloan-profile-menu,.mloan-page-content>.mloan-about,.mloan-page-content>.mloan-bank-card-visual{margin-left:16px;margin-right:16px}
+h1,h2,h3,p{margin-top:0}.mloan-hero{margin:16px;background:linear-gradient(135deg,#f4fbff,#e3f6ff);border-radius:10px;padding:18px 16px;display:grid;grid-template-columns:1.45fr .75fr;min-height:152px;overflow:hidden}.mloan-hero h1{font-size:20px;margin-bottom:4px}.mloan-hero p{font-size:15px;font-weight:600;line-height:1.4;margin-bottom:15px}.mloan-btn{appearance:none;border:0;border-radius:6px;padding:11px 17px;font-weight:700;text-decoration:none;display:inline-flex;justify-content:center;align-items:center;cursor:pointer}.mloan-btn-primary{background:var(--mloan-primary);color:#fff}.mloan-btn-block{width:100%}.mloan-hero-art{position:relative;display:flex;align-items:center;justify-content:center;font-size:36px}.mloan-hero-art>span{position:absolute;right:2px;top:0;color:#f7a71d;font-size:44px;font-weight:800;opacity:.8}.mloan-person{font-size:62px;transform:translateY(12px)}.mloan-section-heading{display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:20px}.mloan-section-heading h2,.mloan-why h2,.mloan-faq h2,.mloan-support h2,.mloan-info-card h2{font-size:15px;margin:0 0 12px}.mloan-section-heading a{color:#c99a22;text-decoration:none;font-size:12px}.mloan-popular-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}.mloan-product-card{display:flex;gap:13px;align-items:flex-start;background:#fff;border:1px solid var(--mloan-line);border-radius:10px;padding:15px 13px;box-shadow:0 2px 10px rgba(0,0,0,.035)}.mloan-product-card.compact{display:block;min-height:122px}.mloan-product-card.compact .mloan-product-icon{margin-bottom:8px}.mloan-product-icon{flex:0 0 42px;width:42px;height:42px;border-radius:9px;background:#edf8fc;display:flex;align-items:center;justify-content:center;font-size:20px}.mloan-product-card:nth-child(2n) .mloan-product-icon{background:#fff0ed}.mloan-product-card:nth-child(3n) .mloan-product-icon{background:#edfbf3}.mloan-product-card:nth-child(4n) .mloan-product-icon{background:#fff6e5}.mloan-product-body{min-width:0;flex:1}.mloan-product-body h3{font-size:14px;margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mloan-amount-range{font-size:12px;font-weight:700;margin-bottom:4px}.mloan-muted{color:var(--mloan-muted);font-size:12px}.mloan-card-title-row{display:flex;justify-content:space-between;gap:8px}.mloan-badge{font-size:9px;background:#eaf7ee;color:var(--mloan-accent);padding:2px 5px;border-radius:999px}.mloan-quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:20px 16px 18px}.mloan-quick-grid a{text-decoration:none;color:var(--mloan-text);text-align:center;font-size:10px}.mloan-quick-grid a span{display:flex;width:40px;height:40px;margin:0 auto 6px;border-radius:7px;background:#eef8fa;align-items:center;justify-content:center;font-size:19px}.mloan-quick-grid b{font-size:10px}.mloan-why{padding:4px 0 18px}.mloan-why p{margin:8px 0;font-size:12px}.mloan-page-lead{font-size:14px;font-weight:600;margin:16px 0}.mloan-list-stack{display:grid;gap:12px}.mloan-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--mloan-line);overflow-x:auto}.mloan-tabs button{background:transparent;border:0;padding:14px 5px 11px;color:#8b949e;border-bottom:2px solid transparent;font-size:11px;white-space:nowrap;cursor:pointer}.mloan-tabs button.active{color:var(--mloan-primary);border-color:var(--mloan-primary);font-weight:700}.mloan-tiny-note{color:#c6a24b;font-size:9px;padding:10px 0}.mloan-order-list{display:grid;gap:10px}.mloan-order-card{border-top:1px solid var(--mloan-line);padding:14px 0}.mloan-order-head{display:flex;justify-content:space-between;margin-bottom:13px}.mloan-order-head strong{color:var(--mloan-accent);font-size:12px}.mloan-order-card dl,.mloan-details,.mloan-profile-details{margin:0}.mloan-order-card dl>div,.mloan-details>div,.mloan-profile-details>div{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:8px 0}.mloan-order-card dt,.mloan-details dt,.mloan-profile-details dt{color:#8b949e}.mloan-order-card dd,.mloan-details dd,.mloan-profile-details dd{margin:0;text-align:right}.mloan-pill{background:#93df3f;color:#337500;border-radius:999px;padding:5px 11px;text-decoration:none;font-size:10px}.mloan-info-card{padding-top:16px}.mloan-details>div{padding:10px 0}.mloan-repayment-form{border-top:1px solid var(--mloan-line);padding-top:16px}.mloan-repayment-form label{display:block;margin-bottom:16px;font-weight:600}.mloan-repayment-form input[type=text],.mloan-repayment-form input[type=file]{display:block;width:100%;margin-top:7px;border:1px solid #e1e5e8;border-radius:6px;padding:12px;background:#fff}.mloan-alert{margin-top:14px;padding:12px;border-radius:8px}.mloan-alert.success{background:#eaf8ee;color:#1f7b3e}.mloan-profile-hero{background:linear-gradient(135deg,var(--mloan-primary),#17a8d6);color:#fff;margin-top:16px!important;border-radius:8px;padding:15px;display:flex;gap:12px;align-items:center}.mloan-avatar{width:58px;height:58px;border-radius:50%;background:#fff;color:var(--mloan-primary);display:flex;align-items:center;justify-content:center;font-size:32px}.mloan-profile-hero h2{margin:0 0 3px;font-size:15px}.mloan-profile-hero p{margin:0;font-size:11px}.mloan-profile-menu{margin-top:14px}.mloan-profile-menu a{display:grid;grid-template-columns:26px 1fr 18px;gap:5px;align-items:center;padding:14px 0;border-bottom:1px solid var(--mloan-line);color:var(--mloan-text);text-decoration:none}.mloan-profile-menu a>span{color:#0aa1a5}.mloan-profile-menu a>b{text-align:right;color:#7b8790;font-size:20px}.mloan-about{padding:18px 0}.mloan-profile-details>div{grid-template-columns:1fr;padding:14px 0;border-bottom:1px solid var(--mloan-line);gap:5px}.mloan-profile-details dd{text-align:left;font-weight:600}.mloan-bank-card-visual{background:linear-gradient(135deg,#0f66a9,#264f8e);color:#fff;border-radius:9px;margin-top:18px!important;padding:18px;min-height:166px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 18px rgba(15,102,169,.25)}.mloan-bank-logo{font-weight:700}.mloan-card-number{font-size:18px;letter-spacing:1.1px}.mloan-card-footer{display:flex;justify-content:space-between;font-size:11px}.mloan-faq{padding-top:16px}.mloan-faq details{border-bottom:1px solid var(--mloan-line)}.mloan-faq summary{list-style:none;display:flex;justify-content:space-between;gap:10px;padding:15px 0;cursor:pointer}.mloan-faq summary::-webkit-details-marker{display:none}.mloan-faq details>div{padding:0 0 14px;color:#65707b}.mloan-support{padding:24px 0}.mloan-support p{margin:0 0 18px}.mloan-support small{color:#8b949e}.mloan-bottom-nav{position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:30;width:100%;max-width:430px;height:70px;background:#fff;border-top:1px solid var(--mloan-line);display:grid;grid-template-columns:repeat(4,1fr);padding-bottom:env(safe-area-inset-bottom)}.mloan-bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;color:#9aa2aa;gap:2px}.mloan-bottom-nav a span{font-size:20px;line-height:1}.mloan-bottom-nav a small{font-size:10px}.mloan-bottom-nav a.active{color:var(--mloan-primary);font-weight:700}
+@media (min-width:700px){body.mloan-mobile-theme{padding:24px 0}.mloan-app-shell{min-height:calc(100vh - 48px);border-radius:22px}.mloan-topbar{border-radius:22px 22px 0 0}.mloan-bottom-nav{bottom:24px;border-radius:0 0 22px 22px}}
+@media (max-width:360px){.mloan-hero{grid-template-columns:1.5fr .5fr}.mloan-person{font-size:48px}.mloan-popular-grid{grid-template-columns:1fr}.mloan-tabs button{font-size:10px}}
+
+/* v1.1.0: unlimited customer products, QR/UPI payments, simplified editable profile */
+.mloan-tabs{display:flex;grid-template-columns:none;overflow-x:auto;scrollbar-width:none}.mloan-tabs::-webkit-scrollbar{display:none}.mloan-tabs button{flex:0 0 auto;min-width:72px}.mloan-empty-state{margin:18px 16px;padding:18px;border:1px dashed var(--mloan-line);border-radius:10px;text-align:center;color:var(--mloan-muted);background:#fafbfc}.mloan-btn-secondary{background:#eef7fb;color:var(--mloan-primary);border:1px solid #d8edf6}.mloan-section-heading.simple{padding:0;margin:0 0 8px}.mloan-section-heading.simple h2{margin:0}.mloan-payment-page{padding-top:18px;padding-bottom:22px}.mloan-payment-page h2{font-size:17px;margin-bottom:5px}.mloan-payment-intro{font-size:12px;color:var(--mloan-muted);margin-bottom:16px}.mloan-payment-qr-card{border:1px solid var(--mloan-line);border-radius:14px;padding:14px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.04)}.mloan-payment-label{font-size:12px;font-weight:700;margin-bottom:12px}.mloan-payment-qr{display:flex;justify-content:center;align-items:center;padding:6px}.mloan-payment-qr img{display:block;width:min(280px,100%);height:auto;aspect-ratio:1/1;object-fit:contain;border-radius:8px}.mloan-payment-qr-placeholder{aspect-ratio:1/1;max-width:280px;margin:0 auto;border:2px dashed #cfd8de;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8b949e;background:#f8fafb}.mloan-payment-qr-placeholder span{font-size:70px;line-height:1}.mloan-payment-qr-placeholder small{margin-top:8px}.mloan-upi-card{margin-top:14px;border:1px solid var(--mloan-line);border-radius:12px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff}.mloan-upi-card small{display:block;color:var(--mloan-muted);font-size:10px;margin-bottom:4px}.mloan-upi-card strong{display:block;font-size:15px;word-break:break-all}.mloan-copy-btn{border:0;border-radius:7px;background:var(--mloan-primary);color:#fff;padding:9px 15px;font-weight:700;cursor:pointer;flex:0 0 auto}.mloan-copy-feedback{min-height:18px;margin:7px 0 0;color:var(--mloan-accent);font-size:11px}.mloan-simple-profile{padding-top:22px;padding-bottom:18px}.mloan-simple-avatar{display:flex;justify-content:center;margin-bottom:20px}.mloan-profile-photo,.mloan-simple-avatar .mloan-avatar-fallback{width:92px;height:92px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 7px 22px rgba(0,0,0,.14)}.mloan-simple-avatar .mloan-avatar-fallback{display:flex;align-items:center;justify-content:center;background:#eef8fc;font-size:45px}.mloan-simple-profile-value{padding:14px 0;border-bottom:1px solid var(--mloan-line)}.mloan-simple-profile-value small{display:block;color:var(--mloan-muted);font-size:11px;margin-bottom:4px}.mloan-simple-profile-value strong{font-size:16px;display:block}.mloan-simple-profile .mloan-btn{margin-top:18px}.mloan-profile-edit-form{margin:0 16px 20px;border:1px solid var(--mloan-line);border-radius:12px;padding:15px;background:#fafcfd}.mloan-profile-edit-form label{display:block;margin-bottom:14px;font-weight:600;font-size:12px}.mloan-profile-edit-form input{display:block;width:100%;margin-top:6px;border:1px solid #dfe5e8;border-radius:7px;padding:11px;background:#fff}.mloan-profile-login-note{margin:0 16px 18px;padding:12px;border-radius:9px;background:#f5f8fa;text-align:center;font-size:12px}.mloan-profile-login-note a{color:var(--mloan-primary);font-weight:700}.mloan-order-head strong{background:#e9f8ef;border-radius:999px;padding:3px 8px}.mloan-main>.mloan-page-content{min-height:calc(100vh - 128px)}
+
+
+/* v1.3.0: customer mobile login, pending-loan gate, inline QR/UPI/UTR order payments */
+.mloan-product-card-link{display:block;color:inherit;text-decoration:none}
+.mloan-product-card-link:active .mloan-product-card{transform:scale(.995)}
+.mloan-alert-error{background:#fff0f0;color:#a12222;border:1px solid #ffd4d4}
+.mloan-alert-warning{background:#fff8df;color:#7a5b00;border:1px solid #f3df9a}
+.mloan-login-page .mloan-app-shell{background:#fff}
+.mloan-login-main{padding-bottom:70px;min-height:100vh}
+.mloan-login-screen{min-height:calc(100vh - 70px);background:#fff}
+.mloan-login-hero{position:relative;min-height:252px;background:var(--mloan-primary);color:#fff;padding:66px 38px 72px;overflow:hidden}
+.mloan-login-hero h1{position:relative;z-index:2;font-size:35px;line-height:1.05;letter-spacing:-.6px;margin:0 0 10px;font-weight:800}
+.mloan-login-hero p{position:relative;z-index:2;font-size:16px;margin:0;opacity:.98}
+.mloan-login-avatar{position:absolute;z-index:3;right:28px;top:27px;width:45px;height:45px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:25px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.mloan-login-wave{position:absolute;left:-10%;bottom:-36px;width:122%;height:91px;background:#fff;border-radius:50% 54% 0 0/58% 58% 0 0;transform:rotate(1.5deg)}
+.mloan-login-body{padding:24px 34px 34px}
+.mloan-login-body h2{font-size:25px;line-height:1.2;margin:0 0 6px;color:#111;font-weight:800}
+.mloan-login-subtitle{font-size:16px;color:#545454;margin:0 0 24px}
+.mloan-login-form{display:grid;gap:14px}
+.mloan-login-field{height:58px;border:1px solid #d9dde1;border-radius:10px;display:grid;grid-template-columns:44px 1fr 42px;align-items:center;background:#fff;overflow:hidden}
+.mloan-login-field:focus-within{border-color:var(--mloan-primary);box-shadow:0 0 0 2px rgba(2,126,187,.09)}
+.mloan-login-field-icon{font-size:21px;text-align:center}
+.mloan-login-field input{width:100%;height:100%;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;font-size:16px;padding:0 5px;color:#2b2b2b}
+.mloan-login-field input::placeholder{color:#9a9ca0}
+.mloan-login-field-end{font-size:20px;color:#999;text-align:center}
+.mloan-login-eye{border:0;background:transparent;color:#8d8f93;font-size:21px;height:100%;cursor:pointer}
+.mloan-login-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:1px}
+.mloan-remember{display:flex;align-items:center;gap:8px;color:#3c3c3c;font-size:14px}
+.mloan-remember input{width:20px;height:20px;accent-color:var(--mloan-primary)}
+.mloan-text-button{border:0;background:transparent;color:var(--mloan-primary);font-weight:700;font-size:14px;padding:8px 0;cursor:default}
+.mloan-login-submit{height:56px;border:0;border-radius:9px;background:var(--mloan-primary);color:#fff;font-weight:700;font-size:18px;cursor:pointer;margin-top:4px}
+.mloan-login-or{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;color:#666;margin:4px 6px}
+.mloan-login-or span{height:1px;background:#dadde0}.mloan-login-or b{font-weight:500}
+.mloan-google-button{height:56px;border:1px solid #d9dde1;border-radius:10px;background:#fff;color:#333;font-size:16px;display:flex;align-items:center;justify-content:center;gap:15px;cursor:default}
+.mloan-google-g{font-size:24px;font-weight:900;background:conic-gradient(#4285f4 0 25%,#34a853 0 50%,#fbbc05 0 75%,#ea4335 0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.mloan-login-signup{text-align:center;margin:10px 0 0;font-size:14px;color:#444}
+.mloan-login-signup button{border:0;background:transparent;color:var(--mloan-primary);font-size:14px;font-weight:700;padding:0;cursor:default}
+.mloan-login-page .mloan-bottom-nav{box-shadow:0 -4px 16px rgba(0,0,0,.03)}
+.mloan-login-page .mloan-bottom-nav a{pointer-events:none}
+
+.mloan-pending-modal[hidden]{display:none!important}
+.mloan-pending-modal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px}
+.mloan-pending-modal-backdrop{position:absolute;inset:0;background:rgba(10,18,26,.55);backdrop-filter:blur(2px)}
+.mloan-pending-modal-card{position:relative;z-index:2;width:min(390px,100%);background:#fff;border-radius:18px;padding:26px 22px 22px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+.mloan-pending-modal-card h2{font-size:22px;margin:8px 0}
+.mloan-pending-modal-card p{color:#65707b;margin:0 0 18px}
+.mloan-pending-close{position:absolute;right:13px;top:9px;border:0;background:transparent;font-size:28px;color:#8b949e;cursor:pointer}
+.mloan-pending-icon{width:48px;height:48px;margin:0 auto;border-radius:50%;background:#fff4c7;color:#9a6a00;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800}
+html.mloan-modal-open{overflow:hidden}
+
+.mloan-simple-profile{padding-left:16px;padding-right:16px}
+.mloan-simple-profile-value:first-of-type{border-top:1px solid var(--mloan-line)}
+
+@media(max-width:360px){
+  .mloan-login-body{padding-left:22px;padding-right:22px}
+  .mloan-login-hero{padding-left:26px;padding-right:26px}
+  .mloan-login-hero h1{font-size:31px}
+  .mloan-login-row{align-items:flex-start;flex-direction:column;gap:0}
+}
+
+.mloan-top-avatar-img{width:28px;height:28px;object-fit:cover;border-radius:4px;display:block}
+.mloan-top-avatar .mloan-avatar-fallback{width:28px;height:28px;border-radius:4px;font-size:15px;background:#fff}
+
+
+/* v1.3.3: clean repayment proof flow with PhonePe / Paytm / GPay */
+.mloan-pay-apps.branded{border:0;padding:0;margin:18px 0 14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.mloan-pay-apps.branded legend{grid-column:1/-1;font-size:12px;font-weight:800;color:#333;margin-bottom:2px}
+.mloan-pay-app{position:relative;cursor:pointer}
+.mloan-pay-app input{position:absolute;opacity:0;pointer-events:none}
+.mloan-pay-app>span{min-height:68px;border:1px solid var(--mloan-line);border-radius:12px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:10px 6px;transition:.16s ease}
+.mloan-pay-app img{display:block;max-width:72px;width:auto;height:22px;object-fit:contain}
+.mloan-pay-app b{font-size:10px;color:#4e5963}
+.mloan-pay-app input:checked+span{border-color:var(--mloan-primary);box-shadow:0 0 0 2px rgba(2,126,187,.12);background:#f6fbff}
+.mloan-paid-toggle{margin-top:4px}
+.mloan-payment-proof{margin-top:14px;padding:14px;border:1px solid var(--mloan-line);border-radius:12px;background:#fafcfd;display:grid;gap:13px}
+.mloan-payment-proof[hidden]{display:none!important}
+.mloan-proof-field{display:block;font-size:12px;font-weight:700;color:#303840}
+.mloan-proof-field>span{display:block;margin-bottom:6px}
+.mloan-proof-field input{width:100%;min-height:44px;border:1px solid #d8dfe4;border-radius:9px;background:#fff;padding:10px 12px;font-size:14px;color:#222}
+.mloan-proof-field input[readonly]{background:#f2f5f7;font-weight:800}
+.mloan-proof-field input[type=file]{padding:8px;font-size:12px}
+.mloan-proof-field small{display:block;margin-top:5px;color:var(--mloan-muted);font-size:10px;font-weight:500}
+.mloan-payment-complete{margin-top:14px;border:1px solid #d9e5ec;border-radius:12px;padding:14px;background:#f7fafc;display:flex;flex-direction:column;gap:4px}
+.mloan-payment-complete strong{font-size:14px}.mloan-payment-complete span{font-size:11px;color:var(--mloan-muted)}
+@media(max-width:360px){.mloan-pay-apps.branded{gap:6px}.mloan-pay-app img{max-width:62px;height:20px}}
+
+
+/* v1.3.4: admin-editable application logo, cleaner repayment form, four order filters */
+.mloan-brand{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0}
+.mloan-brand span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mloan-header-logo{width:30px;height:30px;object-fit:contain;border-radius:6px;background:#fff;flex:0 0 30px}
+.mloan-login-logo{width:45px;height:45px;object-fit:contain;border-radius:8px;display:block}
+.mloan-order-tabs{display:grid;grid-template-columns:repeat(4,1fr);overflow:visible}
+.mloan-order-tabs button{min-width:0;flex:auto}
+.mloan-order-head .mloan-order-pay-state{font-size:11px;border-radius:999px;padding:3px 8px}
+.mloan-order-head .mloan-order-pay-state.is-paid{background:#e9f8ef;color:#17824f}
+.mloan-order-head .mloan-order-pay-state.is-not-paid{background:#fff4ce;color:#886200}
+.mloan-order-qr{margin-top:14px}
+.mloan-order-upi{margin-top:14px}
+@media(max-width:360px){.mloan-order-tabs button{font-size:9px;padding-left:3px;padding-right:3px}.mloan-header-logo{width:27px;height:27px;flex-basis:27px}}
+
+
+/* v1.3.5: exact-product repayment routing and 5-minute payment/review countdowns */
+.mloan-payment-window{margin:14px 0 4px;padding:12px 13px;border:1px solid #cfe7f3;border-radius:12px;background:#f4fbff;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mloan-payment-window div{min-width:0}.mloan-payment-window small{display:block;font-size:10px;color:var(--mloan-muted);margin-bottom:2px}.mloan-payment-window strong{display:block;font-size:12px;line-height:1.35}.mloan-payment-countdown,.mloan-review-countdown{font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:.6px;color:var(--mloan-primary);white-space:nowrap}.mloan-payment-countdown{font-size:22px}.mloan-review-card{text-align:center;align-items:center;padding:18px 14px!important;background:#f6fbff!important;border-color:#cfe7f3!important}.mloan-review-check{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e9f8ef;color:#17824f;font-size:24px;font-weight:800;margin:0 auto 6px}.mloan-review-card>strong{font-size:16px}.mloan-review-card p{font-size:12px;color:var(--mloan-muted);margin:3px 0 8px}.mloan-review-countdown{font-size:30px;line-height:1.1;margin:4px 0 2px}.mloan-review-card small{font-size:10px;color:var(--mloan-muted)}.mloan-review-utr{font-size:11px;margin-top:7px;color:#53616c}.mloan-countdown-note{font-size:10px;color:#9a6c00;margin-top:5px}.mloan-review-card .mloan-countdown-note{text-align:center}.mloan-payment-window+.mloan-countdown-note{margin:0 0 8px}.is-finished{color:#9a6c00!important}
+
+
+/* v1.3.6: requested alignment/status-only refinements */
+.mloan-brand{justify-content:flex-start;justify-self:start;text-align:left}
+.mloan-order-qr{display:flex;justify-content:center;align-items:center;text-align:center}
+.mloan-order-qr img{display:block;margin:0 auto;max-width:min(280px,100%);height:auto}
+.mloan-order-qr .mloan-mini-qr-placeholder{margin-left:auto;margin-right:auto}
+.mloan-pay-apps.branded{max-width:360px;margin-left:auto;margin-right:auto;text-align:center}
+.mloan-pay-apps.branded legend{text-align:center}
+.mloan-order-upi{max-width:360px;margin-left:auto;margin-right:auto;justify-content:center;text-align:center;flex-wrap:wrap}
+.mloan-order-upi>div{flex:0 1 auto;text-align:center}
+.mloan-order-upi .mloan-copy-feedback{flex-basis:100%;width:100%;text-align:center;margin:0}
+
+
+/* v1.3.7: overdue danger color + repayment UPI row positioning only */
+.mloan-order-head .mloan-order-pay-state.status-overdue{
+  background:#fde8e8;
+  color:#b42318;
+  border:1px solid #f5aaaa;
+  font-weight:800;
+}
+
+/* Keep the whole UPI card centered on the page, but do not center every item inside it.
+   Copy stays pinned on the left; the UPI value sits naturally beside it. */
+.mloan-order-upi{
+  width:min(360px,100%);
+  max-width:360px;
+  margin-left:auto;
+  margin-right:auto;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  justify-content:stretch;
+  gap:10px;
+  text-align:left;
+  flex-wrap:initial;
+}
+.mloan-order-upi .mloan-copy-btn{
+  grid-column:1;
+  grid-row:1;
+  justify-self:start;
+  order:-1;
+  position:sticky;
+  left:0;
+}
+.mloan-order-upi>div{
+  grid-column:2;
+  grid-row:1;
+  min-width:0;
+  text-align:left;
+}
+.mloan-order-upi>div strong{
+  display:block;
+  overflow-wrap:anywhere;
+}
+.mloan-order-upi .mloan-copy-feedback{
+  grid-column:1 / -1;
+  grid-row:2;
+  width:100%;
+  margin:0;
+  text-align:left;
+}
+
+
+/* v1.3.8: restore compact UPI row, right-side copy button, round customer photos */
+.mloan-top-avatar{border-radius:50%;overflow:hidden}
+.mloan-top-avatar-img,.mloan-top-avatar .mloan-avatar-fallback{border-radius:50%}
+.mloan-order-upi{
+  width:min(340px,100%);
+  max-width:340px;
+  margin:12px auto 16px;
+  padding:7px 2px 8px;
+  border:0;
+  border-bottom:1px solid var(--mloan-line);
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  text-align:left;
+}
+.mloan-order-upi>div{
+  flex:1 1 auto;
+  min-width:0;
+  text-align:left;
+  order:1;
+}
+.mloan-order-upi>div strong{font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.mloan-order-upi .mloan-copy-btn{
+  order:2;
+  position:static;
+  margin-left:auto;
+  flex:0 0 auto;
+  padding:6px 11px;
+  border:1px solid var(--mloan-primary);
+  border-radius:7px;
+  background:#fff;
+  color:var(--mloan-primary);
+  font-size:11px;
+  line-height:1.2;
+}
+.mloan-order-upi .mloan-copy-feedback{
+  order:3;
+  flex:0 0 100%;
+  width:100%;
+  min-height:0;
+  margin:0;
+  text-align:left;
+}
+.mloan-order-upi .mloan-copy-feedback:empty{display:none}
+
+
+/* v1.4.0: universal PWA install, customer-isolated sessions/cache, per-customer support */
+.mloan-topbar{grid-template-columns:42px minmax(0,1fr) auto 42px;column-gap:7px}
+.mloan-brand{grid-column:2}
+.mloan-install-btn{appearance:none;border:1px solid rgba(255,255,255,.72);background:rgba(255,255,255,.14);color:#fff;border-radius:999px;font-weight:800;font-size:10px;line-height:1;padding:7px 10px;cursor:pointer;white-space:nowrap}
+.mloan-install-btn-top{grid-column:3;justify-self:end}
+.mloan-top-avatar{grid-column:4}
+.mloan-login-hero{position:relative}
+.mloan-install-btn-login{position:absolute;right:15px;top:14px;z-index:3;background:rgba(255,255,255,.16)}
+.mloan-install-modal[hidden]{display:none!important}
+.mloan-install-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:flex-end;justify-content:center;padding:16px}
+.mloan-install-backdrop{position:absolute;inset:0;background:rgba(7,20,31,.52)}
+.mloan-install-card{position:relative;z-index:1;width:min(398px,100%);background:#fff;border-radius:18px 18px 12px 12px;padding:22px 18px 18px;box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.mloan-install-card h2{text-align:center;margin:4px 0 7px;font-size:19px}.mloan-install-card>p{text-align:center;color:var(--mloan-muted);font-size:12px;margin:0 0 14px}
+.mloan-install-icon{width:48px;height:48px;border-radius:50%;margin:0 auto;background:#eaf6fc;color:var(--mloan-primary);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900}
+.mloan-install-close{position:absolute;right:12px;top:9px;border:0;background:transparent;color:#8b949e;font-size:26px;cursor:pointer}
+.mloan-ios-steps{background:#f7fafc;border:1px solid var(--mloan-line);border-radius:10px;padding:12px;margin:0 0 14px;font-size:12px}.mloan-ios-steps ol{padding-left:20px;margin:8px 0 0}.mloan-ios-steps li{margin:4px 0}
+.mloan-payment-window small{display:none!important}
+@media(max-width:360px){.mloan-install-btn-top{font-size:9px;padding:6px 8px}.mloan-topbar{column-gap:4px}.mloan-brand span{font-size:15px}}
+
+
+/* v1.4.1: login-only visual polish, fixed +91 input and 8-character password requirement */
+.mloan-login-actions{position:absolute;right:22px;top:20px;z-index:4;display:flex;align-items:center;gap:10px}
+.mloan-login-actions .mloan-install-btn-login{position:static;right:auto;top:auto;flex:0 0 auto;padding:8px 13px;font-size:11px;box-shadow:none}
+.mloan-login-actions .mloan-login-avatar{position:static;right:auto;top:auto;flex:0 0 45px}
+.mloan-login-avatar svg{width:25px;height:25px;fill:var(--mloan-primary)}
+.mloan-login-field-icon,.mloan-login-field-end,.mloan-login-eye{display:flex;align-items:center;justify-content:center}
+.mloan-login-field-icon svg,.mloan-login-field-end svg,.mloan-login-eye svg{width:22px;height:22px;fill:currentColor}
+.mloan-login-field-icon{color:var(--mloan-primary)}
+.mloan-login-field-end{color:#969da4}
+.mloan-login-eye{color:#7f8992;padding:0}
+.mloan-mobile-field{grid-template-columns:44px 52px minmax(0,1fr) 42px}
+.mloan-country-prefix{height:30px;display:flex;align-items:center;justify-content:center;border-right:1px solid #e3e6e9;color:#26313b;font-size:14px;font-weight:700;letter-spacing:.1px}
+.mloan-mobile-field input{padding-left:10px}
+.mloan-login-subtitle{line-height:1.55}
+@media(max-width:360px){.mloan-login-actions{right:15px;top:16px;gap:7px}.mloan-login-actions .mloan-install-btn-login{padding:7px 10px}.mloan-mobile-field{grid-template-columns:40px 48px minmax(0,1fr) 38px}.mloan-login-field-icon svg,.mloan-login-field-end svg,.mloan-login-eye svg{width:20px;height:20px}}
+
+/* v1.4.2: fixed app-scale behavior for mobile/PWA; layout unchanged. */
+html,body,.mloan-app-shell{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
+
+/* v1.4.3: distinct official-style order cards + clear payment result states only. */
+.mloan-order-list{gap:12px}
+.mloan-order-card{
+  background:#fff;
+  border:1px solid #dce3e8;
+  border-radius:14px;
+  padding:0;
+  overflow:hidden;
+  box-shadow:0 3px 12px rgba(20,39,54,.045);
+}
+.mloan-order-card+.mloan-order-card{margin-top:0}
+.mloan-order-head{
+  margin:0;
+  padding:13px 14px;
+  align-items:center;
+  gap:12px;
+  border-bottom:1px solid #e4e9ed;
+  background:#fbfcfd;
+}
+.mloan-order-head>b{font-size:14px;line-height:1.3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mloan-order-card dl>div{
+  padding:11px 14px;
+  border-bottom:1px solid #edf0f2;
+}
+.mloan-order-card dl>div:last-child{border-bottom:0}
+.mloan-order-card dt{font-size:11px}
+.mloan-order-card dd{font-size:12px;font-weight:650}
+.mloan-order-card .mloan-pill{display:inline-flex;align-items:center;justify-content:center;min-width:82px}
+
+.mloan-payment-result{
+  margin:15px 0 4px;
+  border:1px solid #dfe6ea;
+  border-radius:16px;
+  padding:20px 16px;
+  background:#fff;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:5px;
+  box-shadow:0 5px 18px rgba(20,39,54,.055);
+}
+.mloan-payment-result>strong{font-size:17px;line-height:1.25}
+.mloan-payment-result>span:not(.mloan-result-icon){font-size:12px;color:var(--mloan-muted);line-height:1.45}
+.mloan-result-icon{
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:5px;
+}
+.mloan-result-icon svg{width:31px;height:31px;fill:currentColor}
+.mloan-result-success-icon{
+  color:#158a4e;
+  background:#e9f9f0;
+  border:1px solid #bce9cf;
+  animation:mloanResultFloat 1.7s ease-in-out infinite,mloanSuccessPulse 1.7s ease-in-out infinite;
+}
+.mloan-payment-success{border-color:#ccebd9;background:linear-gradient(180deg,#fbfffc,#f4fcf7)}
+.mloan-payment-success>strong{color:#137b47}
+.mloan-result-failed-icon{
+  color:#c9362b;
+  background:#fff0ef;
+  border:1px solid #f0c1bd;
+  animation:mloanResultFloat 1.7s ease-in-out infinite;
+}
+.mloan-payment-failed{border-color:#f0cfcc;background:linear-gradient(180deg,#fffdfd,#fff7f6)}
+.mloan-payment-failed>strong{color:#b72c23}
+.mloan-result-action{margin-top:10px;min-width:132px}
+.mloan-review-pending-icon{color:var(--mloan-primary);background:#eaf6fc!important}
+.mloan-review-pending-icon svg{width:25px;height:25px;fill:currentColor;animation:mloanReviewPulse 1.35s ease-in-out infinite}
+@keyframes mloanResultFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes mloanSuccessPulse{0%,100%{box-shadow:0 0 0 0 rgba(21,138,78,.12)}50%{box-shadow:0 0 0 9px rgba(21,138,78,0)}}
+@keyframes mloanReviewPulse{0%,100%{opacity:.7;transform:scale(.94)}50%{opacity:1;transform:scale(1.05)}}
+@media (prefers-reduced-motion:reduce){.mloan-result-success-icon,.mloan-result-failed-icon,.mloan-review-pending-icon svg{animation:none}}
+
+
+/* v1.4.4: remove only internal separator lines from order cards; keep card shell unchanged. */
+.mloan-order-head{border-bottom:0}
+.mloan-order-card dl>div{border-bottom:0}
+
+
+/* v1.4.6: keep rejected-payment cross small/red and app-like. */
+.mloan-payment-failed .mloan-result-failed-icon{
+  width:52px!important;
+  height:52px!important;
+  min-width:52px!important;
+  min-height:52px!important;
+  max-width:52px!important;
+  max-height:52px!important;
+  color:#c9362b!important;
+  background:#fff0ef!important;
+  border:1px solid #f0c1bd!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+}
+.mloan-payment-failed .mloan-result-failed-icon svg{
+  display:block!important;
+  width:26px!important;
+  height:26px!important;
+  min-width:26px!important;
+  min-height:26px!important;
+  max-width:26px!important;
+  max-height:26px!important;
+  fill:#c9362b!important;
+  color:#c9362b!important;
+  flex:0 0 26px!important;
+}
+
+
+/* v1.4.7: home app-bar brand positioning only — Android-style left alignment. */
+.mloan-topbar-home{
+  grid-template-columns:minmax(0,1fr) auto 42px;
+  column-gap:8px;
+  padding-left:14px;
+}
+.mloan-topbar-home .mloan-brand{
+  grid-column:1;
+  justify-self:start;
+  justify-content:flex-start;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+}
+.mloan-topbar-home .mloan-header-logo{
+  width:32px;
+  height:32px;
+  flex:0 0 32px;
+  border-radius:8px;
+  object-fit:contain;
+}
+.mloan-topbar-home .mloan-brand span{
+  font-size:18px;
+  line-height:1.15;
+  font-weight:700;
+  letter-spacing:0;
+}
+.mloan-topbar-home .mloan-install-btn-top{grid-column:2;justify-self:end}
+.mloan-topbar-home .mloan-top-avatar{grid-column:3}
+@media(max-width:360px){
+  .mloan-topbar-home{padding-left:12px;column-gap:5px}
+  .mloan-topbar-home .mloan-header-logo{width:30px;height:30px;flex-basis:30px}
+  .mloan-topbar-home .mloan-brand span{font-size:16px}
+}
+
+
+/* toq-app additions: emoji glyphs used in place of the original theme's <img> logos,
+   readable avatar initials, text-based result icons, and a logout row in the menu. */
+.mloan-header-logo{display:flex;align-items:center;justify-content:center;font-size:20px;background:#fff}
+.mloan-topbar-home .mloan-header-logo{font-size:20px}
+.mloan-top-avatar .mloan-avatar-fallback{color:var(--mloan-primary);font-weight:800}
+.mloan-result-icon{font-size:27px;font-weight:800;line-height:1}
+.mloan-review-pending-icon{font-size:24px}
+.mloan-menu-form{margin:0}
+.mloan-menu-form button{
+  width:100%;
+  display:grid;
+  grid-template-columns:26px 1fr 18px;
+  gap:5px;
+  align-items:center;
+  padding:14px 0;
+  border:0;
+  border-bottom:1px solid var(--mloan-line);
+  background:transparent;
+  color:var(--mloan-text);
+  text-align:left;
+  font:inherit;
+  cursor:pointer;
+}
+.mloan-menu-form button>span{color:#0aa1a5}
+.mloan-menu-form button>b{text-align:right;color:#7b8790;font-size:20px}
+.mloan-review-card>strong{display:block}
+
+
+/* Dynamic theme: legible foreground on the (admin-chosen) primary color.
+   --mloan-primary and --mloan-on-primary are injected per-request by the root layout. */
+:root { --mloan-on-primary: #ffffff; }
+.mloan-topbar,
+.mloan-back,
+.mloan-brand,
+.mloan-btn-primary,
+.mloan-login-submit,
+.mloan-login-hero,
+.mloan-login-hero h1,
+.mloan-login-hero p,
+.mloan-login-hero h2,
+.mloan-profile-hero,
+.mloan-profile-hero h2,
+.mloan-profile-hero p {
+  color: var(--mloan-on-primary);
+}
+.mloan-hero .mloan-btn-primary { color: var(--mloan-on-primary); }
