@@ -17,8 +17,12 @@ import type {
 // A tiny JSON-file "database". This is a prototype persistence layer — good
 // enough for a single-process dev app. Swap it for a real DB in production.
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_FILE = path.join(DATA_DIR, "db.json");
+const DB_FILE =
+  process.env.TOQ_DB_FILE ??
+  (process.env.VERCEL
+    ? path.join("/tmp", "toq-app", "db.json")
+    : path.join(process.cwd(), "data", "db.json"));
+const DATA_DIR = path.dirname(DB_FILE);
 
 function seed(): DB {
   const now = new Date();
