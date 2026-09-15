@@ -82,12 +82,63 @@ function defaultSettings(): Settings {
   };
 }
 
+async function ensureSchema(): Promise<void> {
+  const db = database();
+  for (const table of [
+    "customers",
+    "products",
+    "orders",
+    "payments",
+    "applications",
+    "sessions",
+    "admins",
+    "admin_sessions",
+    "settings",
+  ]) {
+    await db.query(
+      `CREATE TABLE IF NOT EXISTS ${table} (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`,
+    );
+  }
+}
+
 async function ensureDefaults(): Promise<void> {
   const db = database();
+  await ensureSchema();
   await db.query(
     "INSERT INTO settings (id, data) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO NOTHING",
     ["global", JSON.stringify(defaultSettings())],
   );
+
+  const products: Product[] = [
+    { id: "p_personal", name: "Personal Loan", icon: "💵", min: 5000, max: 200000, tenureMonths: 12, rateMonthly: 1.5, badge: "Popular" },
+    { id: "p_instant", name: "Instant Cash", icon: "⚡", min: 1000, max: 50000, tenureMonths: 3, rateMonthly: 2 },
+    { id: "p_business", name: "Business Loan", icon: "🏪", min: 25000, max: 500000, tenureMonths: 24, rateMonthly: 1.3 },
+    { id: "p_gold", name: "Gold Loan", icon: "🪙", min: 10000, max: 300000, tenureMonths: 12, rateMonthly: 1.1 },
+    { id: "p_education", name: "Education Loan", icon: "🎓", min: 20000, max: 400000, tenureMonths: 36, rateMonthly: 1 },
+    { id: "p_home", name: "Home Improvement", icon: "🏠", min: 30000, max: 600000, tenureMonths: 36, rateMonthly: 1.2 },
+  ];
+  for (const product of products) {
+    await db.query(
+      "INSERT INTO products (id, data) VALUES ($1, $2::jsonb) ON CONFLICT (id) DO NOTHING",
+      [product.id, JSON.stringify(product)],
+    );
+  }
+
+  const customerRows = await db.query(
+    "SELECT 1 FROM customers WHERE data->>'mobile' = $1 LIMIT 1",
+    ["7688888884"],
+  );
+  if (customerRows.length === 0) {
+    await insert("customers", "cust_demo", {
+      id: "cust_demo",
+      mobile: "7688888884",
+      name: "dikshant",
+      email: "",
+      passwordHash: "",
+      passwordSalt: "",
+      createdAt: new Date().toISOString(),
+    });
+  }
 
   const admins = await db.query("SELECT 1 FROM admins LIMIT 1");
   if (admins.length === 0) {
