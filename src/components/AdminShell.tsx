@@ -38,6 +38,20 @@ export default async function AdminShell({
             </Link>
           ))}
         </nav>
+        <details className="adm-mobile-menu">
+          <summary>Menu</summary>
+          <nav>
+            {NAV.map((n) => (
+              <Link
+                key={n.key}
+                href={n.href}
+                className={active === n.key ? "active" : undefined}
+              >
+                {n.label}
+              </Link>
+            ))}
+          </nav>
+        </details>
         <span className="adm-user">
           {adminName} ({adminRole})
         </span>

@@ -47,6 +47,48 @@
   background: var(--mloan-primary);
   color: var(--mloan-on-primary);
 }
+.adm-mobile-menu {
+  display: none;
+  position: relative;
+}
+.adm-mobile-menu summary {
+  cursor: pointer;
+  list-style: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.adm-mobile-menu summary::-webkit-details-marker {
+  display: none;
+}
+.adm-mobile-menu nav {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 170px;
+  padding: 6px;
+  background: #0f2233;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.adm-mobile-menu a {
+  color: #b8c6d3;
+  text-decoration: none;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.adm-mobile-menu a.active {
+  background: var(--mloan-primary);
+  color: var(--mloan-on-primary);
+  border-radius: 6px;
+}
 .adm-topbar form {
   margin: 0;
 }
@@ -71,6 +113,33 @@
   margin: 0 auto;
   padding: 22px 20px 60px;
 }
+
+@media (max-width: 640px) {
+  .adm-topbar {
+    gap: 8px;
+    padding: 0 12px;
+  }
+  .adm-topbar .adm-brand {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+  }
+  .adm-nav {
+    display: none;
+  }
+  .adm-mobile-menu {
+    display: block;
+    margin-left: auto;
+  }
+  .adm-user {
+    display: none;
+  }
+  .adm-main {
+    padding: 22px 14px 60px;
+  }
+}
+
 .adm-main h1 {
   font-size: 20px;
   margin: 0 0 4px;
