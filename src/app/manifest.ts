@@ -3,7 +3,7 @@ import { getSettings } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const s = await getSettings();
   return {
     name: `${s.appName} — Credit Wallet`,

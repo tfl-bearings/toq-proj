@@ -382,6 +382,7 @@ export async function updateApplication(
 ): Promise<Application | undefined> {
   return update<Application>("applications", id, patch);
 }
+/*
 import { randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { hashPassword } from "./auth";
@@ -433,7 +434,6 @@ export async function getApplication(id: string): Promise<Application | undefine
 export async function listApplications(): Promise<Application[]> { return all<Application>("applications"); }
 export async function getApplicationsForCustomer(customerId: string): Promise<Application[]> { const rows = await sql()`SELECT data FROM applications WHERE data->>'customerId' = ${customerId} ORDER BY created_at DESC`; return rows.map((row) => (row as Row).data as Application); }
 export async function updateApplication(id: string, patch: Partial<Application>): Promise<Application | undefined> { return update<Application>("applications", id, patch); }
-/*
 import { randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { hashPassword } from "./auth";

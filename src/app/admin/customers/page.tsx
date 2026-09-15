@@ -9,6 +9,14 @@ export default async function AdminCustomersPage() {
   if (!admin) redirect("/admin/login");
 
   const customers = await listCustomers();
+  const ordersByCustomer = new Map(
+    await Promise.all(
+      customers.map(async (customer) => [
+        customer.id,
+        await getOrdersForCustomer(customer.id),
+      ] as const),
+    ),
+  );
 
   return (
     <AdminShell active="customers" adminName={admin.name} adminRole={admin.role}>
@@ -31,7 +39,7 @@ export default async function AdminCustomersPage() {
             </thead>
             <tbody>
               {customers.map((c) => {
-                const orders = await getOrdersForCustomer(c.id);
+                const orders = ordersByCustomer.get(c.id) ?? [];
                 const outstanding = orders
                   .filter((o) => o.status === "due" || o.status === "overdue")
                   .reduce((s, o) => s + o.amountDue, 0);
