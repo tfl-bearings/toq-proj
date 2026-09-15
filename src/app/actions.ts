@@ -49,7 +49,7 @@ export async function loginAction(
     return { error: "Passwords do not match." };
   }
 
-  const existing = getCustomerByMobile(mobile);
+  const existing = await getCustomerByMobile(mobile);
   let customerId: string;
 
   if (existing) {
@@ -59,12 +59,12 @@ export async function loginAction(
     customerId = existing.id;
   } else {
     // First sign-in for this number creates the account.
-    const created = createCustomer({ mobile, name: "Customer", password });
+    const created = await createCustomer({ mobile, name: "Customer", password });
     customerId = created.id;
   }
 
   const token = newToken();
-  createSession(token, customerId);
+  await createSession(token, customerId);
   await setSessionCookie(token);
   redirect("/home");
 }
@@ -72,7 +72,7 @@ export async function loginAction(
 export async function logoutAction(): Promise<void> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (token) deleteSession(token);
+  if (token) await deleteSession(token);
   await clearSessionCookie();
   redirect("/login");
 }
@@ -93,7 +93,7 @@ export async function updateProfileAction(
     return { error: "Please enter your name (at least 2 characters)." };
   }
 
-  updateCustomer(customer.id, { name, email });
+  await updateCustomer(customer.id, { name, email });
   revalidatePath("/profile");
   redirect("/profile");
 }
@@ -112,7 +112,7 @@ export async function applyForLoanAction(
   const tenureMonths = Number(formData.get("tenureMonths"));
   const purpose = String(formData.get("purpose") ?? "").trim();
 
-  const product = getProduct(productId);
+  const product = await getProduct(productId);
   if (!product) {
     return { error: "Please choose a loan product." };
   }
@@ -125,7 +125,7 @@ export async function applyForLoanAction(
     return { error: "Choose a valid tenure." };
   }
 
-  createApplication({
+  await createApplication({
     customerId: customer.id,
     productId: product.id,
     productName: product.name,
@@ -151,7 +151,7 @@ export async function submitRepaymentAction(
   const utr = String(formData.get("utr") ?? "").trim();
   const payApp = String(formData.get("payApp") ?? "") as PayApp;
 
-  const order = getOrder(orderId);
+  const order = await getOrder(orderId);
   if (!order || order.customerId !== customer.id) {
     return { error: "Order not found." };
   }
@@ -165,7 +165,7 @@ export async function submitRepaymentAction(
     return { error: "Enter the 12-digit UTR / reference number from your payment." };
   }
 
-  createPayment({
+  await createPayment({
     orderId: order.id,
     customerId: customer.id,
     amount: order.amountDue,
@@ -175,7 +175,7 @@ export async function submitRepaymentAction(
   });
   // Payment is recorded and moves to manual verification — it is NOT
   // auto-approved. A staff member confirms it against the bank statement.
-  updateOrder(order.id, { status: "review" });
+  await updateOrder(order.id, { status: "review" });
   revalidatePath(`/repay/${order.id}`);
   revalidatePath("/orders");
   redirect(`/repay/${order.id}`);

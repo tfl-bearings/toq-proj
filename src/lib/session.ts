@@ -15,9 +15,9 @@ export async function getCurrentCustomer(): Promise<Customer | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const session = getSession(token);
+  const session = await getSession(token);
   if (!session) return null;
-  return getCustomerById(session.customerId) ?? null;
+  return (await getCustomerById(session.customerId)) ?? null;
 }
 
 // Cookie mutations may only run inside Server Actions / Route Handlers.
@@ -43,9 +43,9 @@ export async function getCurrentAdmin(): Promise<Admin | null> {
   const store = await cookies();
   const token = store.get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) return null;
-  const session = getAdminSession(token);
+  const session = await getAdminSession(token);
   if (!session) return null;
-  return getAdminById(session.adminId) ?? null;
+  return (await getAdminById(session.adminId)) ?? null;
 }
 
 export async function setAdminSessionCookie(token: string): Promise<void> {

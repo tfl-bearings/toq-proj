@@ -7,7 +7,7 @@ export default async function SupportPage() {
   const customer = await getCurrentCustomer();
   if (!customer) redirect("/login");
   const initial = (customer.name.trim()[0] ?? "U").toUpperCase();
-  const { appName, supportEmail, supportPhone } = getSettings();
+  const { appName, supportEmail, supportPhone } = await getSettings();
 
   return (
     <AppShell variant="inner" title="Support" initial={initial} back="/profile">

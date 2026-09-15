@@ -12,6 +12,10 @@ npm install
 npm run dev      # http://localhost:3000
 ```
 
+Set `DATABASE_URL` to the Neon connection string and run `scripts/neon-schema.sql`
+before starting the app. Keep the connection string server-side; it is never
+exposed to the browser.
+
 Production build:
 
 ```bash
@@ -115,8 +119,10 @@ acting admin — a real audit trail, since this screen moves money.
   (same `mloan-*` class names), primary color `#66c4ff`.
 - **Auth**: mobile-number login with a `scrypt`-hashed password (Node built-in,
   no external crypto dep) and an httpOnly session cookie (`src/lib/session.ts`).
-- **Data**: a tiny JSON-file store at `data/db.json`, seeded on first read
-  (`src/lib/db.ts`). Swap it for a real database in production.
+- **Data**: Neon PostgreSQL via `@neondatabase/serverless`, configured with
+  `DATABASE_URL`. Run `scripts/neon-schema.sql` once to create the tables and
+  seed products/settings/demo records. The app initializes the demo scrypt
+  password hash on first read.
 - **Mutations**: React 19 **Server Actions** in `src/app/actions.ts`
   (login/register, logout, profile update, repayment submission), consumed with
   `useActionState`.

@@ -21,7 +21,7 @@ function readableOn(hex: string): string {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const s = getSettings();
+  const s = await getSettings();
   return {
     title: `${s.appName} — Credit Wallet`,
     description: "Manage your loan account and repayments.",
@@ -35,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export async function generateViewport(): Promise<Viewport> {
-  const s = getSettings();
+  const s = await getSettings();
   return {
     themeColor: s.themeColor,
     width: "device-width",
@@ -51,7 +51,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const s = getSettings();
+  const s = await getSettings();
   const themeCss = `:root{--mloan-primary:${s.themeColor};--mloan-on-primary:${readableOn(
     s.themeColor,
   )};}`;

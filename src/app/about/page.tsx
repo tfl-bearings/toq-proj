@@ -7,7 +7,7 @@ export default async function AboutPage() {
   const customer = await getCurrentCustomer();
   if (!customer) redirect("/login");
   const initial = (customer.name.trim()[0] ?? "U").toUpperCase();
-  const { appName } = getSettings();
+  const { appName } = await getSettings();
 
   return (
     <AppShell variant="inner" title="About us" initial={initial} back="/profile">

@@ -7,7 +7,7 @@ import InstallButton from "@/components/InstallButton";
 export default async function LoginPage() {
   const customer = await getCurrentCustomer();
   if (customer) redirect("/home");
-  const { appName } = getSettings();
+  const { appName } = await getSettings();
 
   return (
     <div className="mloan-login-page">

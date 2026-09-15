@@ -14,12 +14,12 @@ export default async function AdminDashboard() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
-  const customers = listCustomers();
-  const orders = listAllOrders();
-  const payments = listPayments();
+  const customers = await listCustomers();
+  const orders = await listAllOrders();
+  const payments = await listPayments();
 
   const pendingReviews = payments.filter((p) => p.status === "review").length;
-  const pendingApps = listApplications().filter(
+  const pendingApps = (await listApplications()).filter(
     (a) => a.status === "pending",
   ).length;
   const activeLoans = orders.filter((o) => o.status !== "paid").length;

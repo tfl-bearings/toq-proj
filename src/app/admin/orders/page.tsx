@@ -9,7 +9,12 @@ export default async function AdminOrdersPage() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
-  const orders = listAllOrders();
+  const orders = await listAllOrders();
+  const customersById = new Map(
+    (await Promise.all(orders.map((o) => getCustomerById(o.customerId))))
+      .filter((customer): customer is NonNullable<typeof customer> => !!customer)
+      .map((customer) => [customer.id, customer]),
+  );
 
   return (
     <AdminShell active="orders" adminName={admin.name} adminRole={admin.role}>
@@ -36,7 +41,7 @@ export default async function AdminOrdersPage() {
             </thead>
             <tbody>
               {orders.map((o) => {
-                const customer = getCustomerById(o.customerId);
+                const customer = customersById.get(o.customerId);
                 return (
                   <tr key={o.id}>
                     <td className="adm-mono">{o.id}</td>

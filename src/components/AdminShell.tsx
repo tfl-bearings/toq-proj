@@ -11,7 +11,7 @@ const NAV = [
   { key: "settings", href: "/admin/settings", label: "Settings" },
 ];
 
-export default function AdminShell({
+export default async function AdminShell({
   active,
   adminName,
   adminRole,
@@ -22,7 +22,7 @@ export default function AdminShell({
   adminRole: string;
   children: React.ReactNode;
 }) {
-  const { appName } = getSettings();
+  const { appName } = await getSettings();
   return (
     <div className="adm-shell">
       <header className="adm-topbar">

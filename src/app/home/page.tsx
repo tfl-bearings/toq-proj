@@ -11,11 +11,11 @@ export default async function HomePage() {
 
   const initial = (customer.name.trim()[0] ?? "U").toUpperCase();
   const firstName = customer.name.split(" ")[0] || "there";
-  const products = getProducts();
-  const orders = getOrdersForCustomer(customer.id);
+  const products = await getProducts();
+  const orders = await getOrdersForCustomer(customer.id);
   const due = orders.find((o) => o.status === "due" || o.status === "overdue");
   const last4 = customer.mobile.slice(-4);
-  const { appName } = getSettings();
+  const { appName } = await getSettings();
 
   return (
     <AppShell variant="home" title={appName} initial={initial}>

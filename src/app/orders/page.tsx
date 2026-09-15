@@ -23,8 +23,8 @@ export default async function OrdersPage({
 
   const { applied } = await searchParams;
   const initial = (customer.name.trim()[0] ?? "U").toUpperCase();
-  const orders = getOrdersForCustomer(customer.id);
-  const applications = getApplicationsForCustomer(customer.id);
+  const orders = await getOrdersForCustomer(customer.id);
+  const applications = await getApplicationsForCustomer(customer.id);
 
   return (
     <AppShell variant="inner" title="My Loans" initial={initial}>

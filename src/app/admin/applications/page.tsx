@@ -12,10 +12,15 @@ export default async function AdminApplicationsPage() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
-  const applications = listApplications();
+  const applications = await listApplications();
   const pending = applications.filter((a) => a.status === "pending");
   const history = applications.filter((a) => a.status !== "pending");
-  const products = getProducts();
+  const products = await getProducts();
+  const customersById = new Map(
+    (await Promise.all(applications.map((a) => getCustomerById(a.customerId))))
+      .filter((customer): customer is NonNullable<typeof customer> => !!customer)
+      .map((customer) => [customer.id, customer]),
+  );
 
   return (
     <AdminShell
@@ -35,7 +40,7 @@ export default async function AdminApplicationsPage() {
           <div className="adm-empty">No applications waiting.</div>
         ) : (
           pending.map((a) => {
-            const customer = getCustomerById(a.customerId);
+            const customer = customersById.get(a.customerId);
             return (
               <div className="adm-review-item" key={a.id}>
                 <div className="adm-review-head">
@@ -121,7 +126,7 @@ export default async function AdminApplicationsPage() {
               </thead>
               <tbody>
                 {history.map((a) => {
-                  const customer = getCustomerById(a.customerId);
+                  const customer = customersById.get(a.customerId);
                   return (
                     <tr key={a.id}>
                       <td>{customer?.name ?? "—"}</td>

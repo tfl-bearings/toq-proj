@@ -8,7 +8,7 @@ export default async function AdminSettingsPage() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
-  const settings = getSettings();
+  const settings = await getSettings();
 
   return (
     <AdminShell active="settings" adminName={admin.name} adminRole={admin.role}>

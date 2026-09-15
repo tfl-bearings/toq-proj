@@ -47,7 +47,7 @@ export async function adminLoginAction(
     return { error: "Enter your username and password." };
   }
 
-  const admin = getAdminByUsername(username);
+  const admin = await getAdminByUsername(username);
   if (
     !admin ||
     !verifyPassword(password, admin.passwordHash, admin.passwordSalt)
@@ -56,7 +56,7 @@ export async function adminLoginAction(
   }
 
   const token = newToken();
-  createAdminSession(token, admin.id);
+  await createAdminSession(token, admin.id);
   await setAdminSessionCookie(token);
   redirect("/admin");
 }
@@ -64,7 +64,7 @@ export async function adminLoginAction(
 export async function adminLogoutAction(): Promise<void> {
   const store = await cookies();
   const token = store.get(ADMIN_SESSION_COOKIE)?.value;
-  if (token) deleteAdminSession(token);
+  if (token) await deleteAdminSession(token);
   await clearAdminSessionCookie();
   redirect("/admin/login");
 }
@@ -74,17 +74,17 @@ export async function adminLogoutAction(): Promise<void> {
 export async function approvePaymentAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const paymentId = String(formData.get("paymentId") ?? "");
-  const payment = getPayment(paymentId);
+  const payment = await getPayment(paymentId);
   if (!payment || payment.status !== "review") redirect("/admin/payments");
 
-  updatePayment(payment.id, {
+  await updatePayment(payment.id, {
     status: "success",
     reviewedBy: admin.id,
     reviewedByName: admin.name,
     reviewedAt: new Date().toISOString(),
   });
   // Approving a repayment closes the loan.
-  updateOrder(payment.orderId, { status: "paid", amountDue: 0 });
+  await updateOrder(payment.orderId, { status: "paid", amountDue: 0 });
 
   revalidatePath("/admin/payments");
   revalidatePath("/admin");
@@ -95,10 +95,10 @@ export async function rejectPaymentAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const paymentId = String(formData.get("paymentId") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
-  const payment = getPayment(paymentId);
+  const payment = await getPayment(paymentId);
   if (!payment || payment.status !== "review") redirect("/admin/payments");
 
-  updatePayment(payment.id, {
+  await updatePayment(payment.id, {
     status: "failed",
     reviewedBy: admin.id,
     reviewedByName: admin.name,
@@ -106,10 +106,10 @@ export async function rejectPaymentAction(formData: FormData): Promise<void> {
     reason: reason || "Could not verify this payment against our records.",
   });
   // Rejecting returns the loan to unpaid (overdue if the due date has passed).
-  const order = getOrder(payment.orderId);
+  const order = await getOrder(payment.orderId);
   if (order) {
     const overdue = new Date(order.dueDate).getTime() < Date.now();
-    updateOrder(order.id, { status: overdue ? "overdue" : "due" });
+    await updateOrder(order.id, { status: overdue ? "overdue" : "due" });
   }
 
   revalidatePath("/admin/payments");
@@ -130,9 +130,9 @@ export async function createLoanAction(
   const principal = Number(formData.get("amount"));
   const tenureMonths = Number(formData.get("tenureMonths"));
 
-  const customer = getCustomerById(customerId);
+  const customer = await getCustomerById(customerId);
   if (!customer) return { error: "Select a customer." };
-  const product = getProduct(productId);
+  const product = await getProduct(productId);
   if (!product) return { error: "Select a loan product." };
   if (!Number.isFinite(principal) || principal <= 0) {
     return { error: "Enter a valid loan amount." };
@@ -142,7 +142,7 @@ export async function createLoanAction(
   }
 
   const amountDue = totalRepayable(principal, product.rateMonthly, tenureMonths);
-  createOrder({
+  await createOrder({
     customerId: customer.id,
     productId: product.id,
     productName: product.name,
@@ -164,7 +164,7 @@ export async function approveApplicationAction(
 ): Promise<void> {
   const admin = await requireAdmin();
   const applicationId = String(formData.get("applicationId") ?? "");
-  const application = getApplication(applicationId);
+  const application = await getApplication(applicationId);
   if (!application || application.status !== "pending") {
     redirect("/admin/applications");
   }
@@ -182,11 +182,11 @@ export async function approveApplicationAction(
       ? Math.round(tenureRaw)
       : application.tenureMonths;
 
-  const product = getProduct(productId) ?? getProduct(application.productId);
+  const product = (await getProduct(productId)) ?? (await getProduct(application.productId));
   if (!product) redirect("/admin/applications");
 
   const amountDue = totalRepayable(principal, product.rateMonthly, tenureMonths);
-  const order = createOrder({
+  const order = await createOrder({
     customerId: application.customerId,
     productId: product.id,
     productName: product.name,
@@ -198,7 +198,7 @@ export async function approveApplicationAction(
     applicationId: application.id,
   });
 
-  updateApplication(application.id, {
+  await updateApplication(application.id, {
     status: "approved",
     productId: product.id,
     productName: product.name,
@@ -222,12 +222,12 @@ export async function rejectApplicationAction(
   const admin = await requireAdmin();
   const applicationId = String(formData.get("applicationId") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
-  const application = getApplication(applicationId);
+  const application = await getApplication(applicationId);
   if (!application || application.status !== "pending") {
     redirect("/admin/applications");
   }
 
-  updateApplication(application.id, {
+  await updateApplication(application.id, {
     status: "rejected",
     reason: reason || "Application did not meet our current criteria.",
     reviewedBy: admin.id,
@@ -259,7 +259,7 @@ export async function updateSettingsAction(
     return { error: "Theme color must be a 6-digit hex like #66c4ff." };
   }
 
-  updateSettings({
+  await updateSettings({
     appName,
     upiId,
     payeeName,

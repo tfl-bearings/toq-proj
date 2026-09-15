@@ -11,7 +11,8 @@
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "@neondatabase/serverless": "^1.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

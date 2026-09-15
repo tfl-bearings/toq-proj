@@ -14,7 +14,7 @@ export default async function ApplyPage({
   if (!customer) redirect("/login");
 
   const { id } = await params;
-  const product = getProduct(id);
+  const product = await getProduct(id);
   if (!product) notFound();
 
   const initial = (customer.name.trim()[0] ?? "U").toUpperCase();

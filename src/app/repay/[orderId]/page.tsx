@@ -18,11 +18,11 @@ export default async function RepayPage({
   if (!customer) redirect("/login");
 
   const { orderId } = await params;
-  const order = getOrder(orderId);
+  const order = await getOrder(orderId);
   if (!order || order.customerId !== customer.id) notFound();
 
   const initial = (customer.name.trim()[0] ?? "U").toUpperCase();
-  const payments = getPaymentsForOrder(order.id).sort((a, b) =>
+  const payments = (await getPaymentsForOrder(order.id)).sort((a, b) =>
     a.createdAt < b.createdAt ? 1 : -1,
   );
   const latest = payments[0];

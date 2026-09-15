@@ -19,7 +19,17 @@ export default async function AdminPaymentsPage() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
-  const payments = listPayments();
+  const payments = await listPayments();
+  const customersById = new Map(
+    (await Promise.all(payments.map((p) => getCustomerById(p.customerId))))
+      .filter((customer): customer is NonNullable<typeof customer> => !!customer)
+      .map((customer) => [customer.id, customer]),
+  );
+  const ordersById = new Map(
+    (await Promise.all(payments.map((p) => getOrder(p.orderId))))
+      .filter((order): order is NonNullable<typeof order> => !!order)
+      .map((order) => [order.id, order]),
+  );
   const pending = payments.filter((p) => p.status === "review");
   const history = payments.filter((p) => p.status !== "review");
 
@@ -51,8 +61,8 @@ export default async function AdminPaymentsPage() {
               </thead>
               <tbody>
                 {pending.map((p) => {
-                  const customer = getCustomerById(p.customerId);
-                  const order = getOrder(p.orderId);
+                  const customer = customersById.get(p.customerId);
+                  const order = ordersById.get(p.orderId);
                   return (
                     <tr key={p.id}>
                       <td>
@@ -126,7 +136,7 @@ export default async function AdminPaymentsPage() {
               </thead>
               <tbody>
                 {history.map((p) => {
-                  const customer = getCustomerById(p.customerId);
+                  const customer = customersById.get(p.customerId);
                   return (
                     <tr key={p.id}>
                       <td>{customer?.name ?? "—"}</td>

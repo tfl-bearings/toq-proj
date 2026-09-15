@@ -8,7 +8,7 @@ export default async function AdminCustomersPage() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
-  const customers = listCustomers();
+  const customers = await listCustomers();
 
   return (
     <AdminShell active="customers" adminName={admin.name} adminRole={admin.role}>
@@ -31,7 +31,7 @@ export default async function AdminCustomersPage() {
             </thead>
             <tbody>
               {customers.map((c) => {
-                const orders = getOrdersForCustomer(c.id);
+                const orders = await getOrdersForCustomer(c.id);
                 const outstanding = orders
                   .filter((o) => o.status === "due" || o.status === "overdue")
                   .reduce((s, o) => s + o.amountDue, 0);

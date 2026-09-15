@@ -8,12 +8,12 @@ export default async function AdminNewLoanPage() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
-  const customers = listCustomers().map((c) => ({
+  const customers = (await listCustomers()).map((c) => ({
     id: c.id,
     name: c.name,
     mobile: c.mobile,
   }));
-  const products = getProducts().map((p) => ({
+  const products = (await getProducts()).map((p) => ({
     id: p.id,
     name: p.name,
     rateMonthly: p.rateMonthly,
