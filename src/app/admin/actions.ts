@@ -57,13 +57,13 @@ export async function adminLoginAction(
 
   const token = newToken();
   await createAdminSession(token, admin.id);
-  await setAdminSessionCookie(token);
+  await setAdminSessionCookie(token, admin.id);
   redirect("/admin");
 }
 
 export async function adminLogoutAction(): Promise<void> {
   const store = await cookies();
-  const token = store.get(ADMIN_SESSION_COOKIE)?.value;
+  const token = store.get(ADMIN_SESSION_COOKIE)?.value.split(".")[0];
   if (token) await deleteAdminSession(token);
   await clearAdminSessionCookie();
   redirect("/admin/login");
