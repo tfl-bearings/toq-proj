@@ -12,7 +12,11 @@ export const SESSION_COOKIE = "toq_session";
 export const ADMIN_SESSION_COOKIE = "toq_admin_session";
 
 function adminCookieSignature(token: string, adminId: string): string {
-  const secret = process.env.ADMIN_COOKIE_SECRET || process.env.DATABASE_URL;
+  const secret =
+    process.env.ADMIN_COOKIE_SECRET ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.NEON_DATABASE_URL;
   if (!secret) throw new Error("ADMIN_COOKIE_SECRET or DATABASE_URL is required");
   return createHmac("sha256", secret)
     .update(`${token}.${adminId}`)
