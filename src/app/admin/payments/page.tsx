@@ -9,6 +9,16 @@ import {
 } from "@/app/admin/actions";
 import type { PayApp } from "@/lib/types";
 
+const REJECTION_REASONS = [
+  "Invalid UTR",
+  "Payment not received",
+  "Incorrect payment method",
+  "Invalid payment screenshot",
+  "Incorrect amount",
+  "Duplicate payment",
+  "Other",
+];
+
 const PAY_LABEL: Record<PayApp, string> = {
   phonepe: "PhonePe",
   paytm: "Paytm",
@@ -32,6 +42,7 @@ export default async function AdminPaymentsPage() {
   );
   const pending = payments.filter((p) => p.status === "review");
   const history = payments.filter((p) => p.status !== "review");
+  const q = "";
 
   return (
     <AdminShell active="payments" adminName={admin.name} adminRole={admin.role}>
@@ -43,76 +54,59 @@ export default async function AdminPaymentsPage() {
 
       <div className="adm-section">
         <h2>Awaiting review ({pending.length})</h2>
+        <div style={{ padding: 16 }}>
+          <form action="/admin/payments" method="get" className="adm-search-row">
+            <input name="q" placeholder="Search by customer, UTR, amount, status" />
+            <button type="submit" className="adm-btn adm-btn-primary">Search</button>
+          </form>
+        </div>
         {pending.length === 0 ? (
           <div className="adm-empty">All caught up — no payments to review.</div>
         ) : (
-          <div className="adm-table-wrap">
-            <table className="adm-table">
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>Loan</th>
-                  <th>Amount</th>
-                  <th>UTR</th>
-                  <th>Via</th>
-                  <th>Submitted</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pending.map((p) => {
-                  const customer = customersById.get(p.customerId);
-                  const order = ordersById.get(p.orderId);
-                  return (
-                    <tr key={p.id}>
-                      <td>
-                        {customer?.name ?? "—"}
-                        <br />
-                        <span className="adm-mono">{customer?.mobile}</span>
-                      </td>
-                      <td>
-                        {order?.productName ?? "—"}
-                        <br />
-                        <span className="adm-mono">{p.orderId}</span>
-                      </td>
-                      <td>{inr(p.amount)}</td>
-                      <td className="adm-mono">{p.utr}</td>
-                      <td>{PAY_LABEL[p.payApp]}</td>
-                      <td>{shortDate(p.createdAt)}</td>
-                      <td>
-                        <div className="adm-actions">
-                          <form action={approvePaymentAction}>
-                            <input type="hidden" name="paymentId" value={p.id} />
-                            <button
-                              type="submit"
-                              className="adm-btn adm-btn-approve"
-                            >
-                              Approve
-                            </button>
-                          </form>
-                          <form
-                            action={rejectPaymentAction}
-                            className="adm-reject-form"
-                          >
-                            <input type="hidden" name="paymentId" value={p.id} />
-                            <input
-                              name="reason"
-                              placeholder="Reason (optional)"
-                            />
-                            <button
-                              type="submit"
-                              className="adm-btn adm-btn-reject"
-                            >
-                              Reject
-                            </button>
-                          </form>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="adm-review-list">
+            {pending.map((p) => {
+              const customer = customersById.get(p.customerId);
+              const order = ordersById.get(p.orderId);
+              return (
+                <div className="adm-review-item" key={p.id}>
+                  <div className="adm-review-head">
+                    <b>{customer?.name ?? "Unknown customer"}</b>
+                    <span className="adm-mono">{customer?.mobile ?? "—"}</span>
+                    <span className="adm-review-when">{shortDate(p.createdAt)}</span>
+                  </div>
+                  <div className="adm-review-req">
+                    {inr(p.amount)} · {PAY_LABEL[p.payApp]} · UTR <strong>{p.utr}</strong>
+                  </div>
+                  <div className="adm-review-req">
+                    Order: <span className="adm-mono">{order?.productName ?? "—"}</span> · {order?.id ?? p.orderId}
+                  </div>
+                  {p.proofImage ? (
+                    <div className="adm-proof-wrap">
+                      <img src={p.proofImage} alt="Payment proof" className="adm-proof-image" />
+                    </div>
+                  ) : null}
+                  <div className="adm-actions">
+                    <form action={approvePaymentAction}>
+                      <input type="hidden" name="paymentId" value={p.id} />
+                      <button type="submit" className="adm-btn adm-btn-approve">Approve</button>
+                    </form>
+                    <details className="adm-reject-panel">
+                      <summary className="adm-btn adm-btn-reject">Reject</summary>
+                      <form action={rejectPaymentAction} className="adm-reject-form-column">
+                        <input type="hidden" name="paymentId" value={p.id} />
+                        <select name="rejectReason" defaultValue="Other">
+                          {REJECTION_REASONS.map((reason) => (
+                            <option key={reason} value={reason}>{reason}</option>
+                          ))}
+                        </select>
+                        <input name="customReason" placeholder="Optional custom explanation" />
+                        <button type="submit" className="adm-btn adm-btn-reject">Confirm reject</button>
+                      </form>
+                    </details>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

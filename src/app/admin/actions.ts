@@ -1,20 +1,25 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { newToken, verifyPassword } from "@/lib/auth";
 import {
   createAdminSession,
+  createAuditLog,
+  createCustomer,
   createOrder,
   deleteAdminSession,
   getAdminByUsername,
   getApplication,
   getCustomerById,
+  getCustomerByMobile,
   getOrder,
   getPayment,
   getProduct,
   updateApplication,
+  updateCustomer,
   updateOrder,
   updatePayment,
   updateSettings,
@@ -82,19 +87,100 @@ export async function approvePaymentAction(formData: FormData): Promise<void> {
     reviewedBy: admin.id,
     reviewedByName: admin.name,
     reviewedAt: new Date().toISOString(),
+    reason: "Approved after manual verification",
   });
-  // Approving a repayment closes the loan.
-  await updateOrder(payment.orderId, { status: "paid", amountDue: 0 });
+  const order = await getOrder(payment.orderId);
+  if (order) {
+    await updateOrder(payment.orderId, { status: "paid", amountDue: 0 });
+  }
+  await updateCustomer(payment.customerId, {
+    status: "active",
+    lastActivityAt: new Date().toISOString(),
+    activatedAt: new Date().toISOString(),
+  });
+  await createAuditLog({
+    action: "payment_approved",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: payment.customerId,
+    paymentId: payment.id,
+    orderId: payment.orderId,
+    details: `Approved payment ${payment.id} for ${payment.amount}`,
+  });
 
   revalidatePath("/admin/payments");
   revalidatePath("/admin");
   redirect("/admin/payments");
 }
 
+export async function updateCustomerAdminAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "");
+  const customer = await getCustomerById(customerId);
+  if (!customer) redirect("/admin/customers");
+
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const mobile = String(formData.get("mobile") ?? "").trim();
+  const upiId = String(formData.get("upiId") ?? "").trim();
+  const paymentMethod = String(formData.get("paymentMethod") ?? "UPI").trim();
+  const status = String(formData.get("status") ?? customer.status ?? "pending").trim();
+
+  if (!name || !/^\d{10}$/.test(mobile)) redirect(`/admin/customers/${customerId}`);
+
+  await updateCustomer(customerId, {
+    name,
+    mobile,
+    email,
+    upiId,
+    paymentMethod,
+    status: status as typeof customer.status,
+    lastActivityAt: new Date().toISOString(),
+  });
+  await createAuditLog({
+    action: "customer_edited",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId,
+    details: `Updated details for ${name}`,
+  });
+
+  revalidatePath("/admin/customers");
+  redirect(`/admin/customers/${customerId}`);
+}
+
+export async function deactivateCustomerAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "");
+  const customer = await getCustomerById(customerId);
+  if (!customer) redirect("/admin/customers");
+
+  await updateCustomer(customerId, {
+    status: "inactive",
+    deactivatedAt: new Date().toISOString(),
+    lastActivityAt: new Date().toISOString(),
+  });
+  await createAuditLog({
+    action: "customer_deactivated",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId,
+    details: `Deactivated customer ${customer.name}`,
+  });
+
+  revalidatePath("/admin/customers");
+  redirect("/admin/customers");
+}
+
 export async function rejectPaymentAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const paymentId = String(formData.get("paymentId") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
+  const choice = String(formData.get("rejectReason") ?? "Other").trim();
+  const custom = String(formData.get("customReason") ?? "").trim();
+  const reason = [choice, custom].filter(Boolean).join(" — ") || "Payment rejected after review.";
   const payment = await getPayment(paymentId);
   if (!payment || payment.status !== "review") redirect("/admin/payments");
 
@@ -103,14 +189,28 @@ export async function rejectPaymentAction(formData: FormData): Promise<void> {
     reviewedBy: admin.id,
     reviewedByName: admin.name,
     reviewedAt: new Date().toISOString(),
-    reason: reason || "Could not verify this payment against our records.",
+    reason,
   });
-  // Rejecting returns the loan to unpaid (overdue if the due date has passed).
   const order = await getOrder(payment.orderId);
   if (order) {
     const overdue = new Date(order.dueDate).getTime() < Date.now();
     await updateOrder(order.id, { status: overdue ? "overdue" : "due" });
   }
+  await updateCustomer(payment.customerId, {
+    status: "active",
+    lastActivityAt: new Date().toISOString(),
+  });
+  await createAuditLog({
+    action: "payment_rejected",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: payment.customerId,
+    paymentId: payment.id,
+    orderId: payment.orderId,
+    reason,
+    details: `Rejected payment ${payment.id}`,
+  });
 
   revalidatePath("/admin/payments");
   revalidatePath("/admin");
@@ -242,6 +342,86 @@ export async function rejectApplicationAction(
 
 // --- Settings ----------------------------------------------------------------
 
+export async function createCustomerAdminAction(
+  formData: FormData,
+): Promise<void> {
+  const admin = await requireAdmin();
+  const mobile = String(formData.get("mobile") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const paymentMethod = String(formData.get("paymentMethod") ?? "UPI").trim();
+  const upiId = String(formData.get("upiId") ?? "").trim();
+  const customer = await getCustomerByMobile(mobile);
+
+  if (!/^\d{10}$/.test(mobile)) {
+    redirect("/admin/customers?error=invalid-mobile");
+  }
+  if (!name || name.length < 2) {
+    redirect("/admin/customers?error=invalid-name");
+  }
+  if (customer) {
+    redirect("/admin/customers?error=duplicate-customer");
+  }
+
+  const generated = await createCustomer({
+    mobile,
+    name,
+    email,
+    paymentMethod,
+    upiId,
+    status: "pending",
+    password: "",
+    inviteLink: "",
+  });
+  const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login?invite=${encodeURIComponent(generated.inviteToken ?? generated.id)}`;
+  await updateCustomer(generated.id, {
+    inviteLink,
+    customerCode: `CUST-${generated.id.slice(-6).toUpperCase()}`,
+    lastActivityAt: new Date().toISOString(),
+  });
+  await createAuditLog({
+    action: "customer_created",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: generated.id,
+    details: `Created customer ${generated.name} with access link`,
+  });
+
+  revalidatePath("/admin/customers");
+  redirect("/admin/customers");
+}
+
+export async function generateCustomerInviteAction(
+  formData: FormData,
+): Promise<void> {
+  const admin = await requireAdmin();
+  const customerId = String(formData.get("customerId") ?? "");
+  const customer = await getCustomerById(customerId);
+  if (!customer) redirect("/admin/customers");
+
+  const token = customer.inviteToken ?? randomUUID();
+  const link = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login?invite=${encodeURIComponent(token)}`;
+  await updateCustomer(customerId, {
+    inviteLink: link,
+    inviteToken: token,
+    status: customer.status ?? "pending",
+    lastActivityAt: new Date().toISOString(),
+  });
+
+  await createAuditLog({
+    action: "application_link_generated",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId,
+    details: `Generated customer invite link`,
+  });
+
+  revalidatePath("/admin/customers");
+  redirect(`/admin/customers/${customerId}`);
+}
+
 export async function updateSettingsAction(
   _prev: FormState,
   formData: FormData,
@@ -267,7 +447,6 @@ export async function updateSettingsAction(
     supportPhone,
     ...(themeColorRaw ? { themeColor: themeColorRaw } : {}),
   });
-  // Re-render everything under the root layout so the new name/theme show up.
   revalidatePath("/", "layout");
   return { ok: true };
 }

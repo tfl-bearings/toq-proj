@@ -6,7 +6,17 @@ export type OrderStatus =
   | "paid" // verified & closed
   | "overdue"; // past due date, still unpaid
 
-export type PaymentStatus = "review" | "success" | "failed";
+export type CustomerStatus = "active" | "pending" | "inactive";
+export type PasswordSetupStatus = "not_set" | "pending" | "set" | "activated";
+export type PaymentStatus =
+  | "review"
+  | "success"
+  | "failed"
+  | "approved"
+  | "rejected"
+  | "refund_pending"
+  | "refunded"
+  | "repayment_required";
 
 export type PayApp = "phonepe" | "paytm" | "gpay";
 
@@ -18,7 +28,18 @@ export interface Customer {
   photo?: string; // optional avatar URL / data URI
   passwordHash: string;
   passwordSalt: string;
+  status?: CustomerStatus;
+  paymentMethod?: string;
+  upiId?: string;
+  customerCode?: string;
+  inviteToken?: string;
+  inviteLink?: string;
+  passwordSetAt?: string;
+  activatedAt?: string;
+  lastActivityAt?: string;
   createdAt: string;
+  updatedAt?: string;
+  deactivatedAt?: string;
 }
 
 export interface Product {
@@ -77,12 +98,19 @@ export interface Payment {
   utr: string; // 12-digit UPI transaction reference the customer enters
   payApp: PayApp;
   status: PaymentStatus;
+  paymentMethod?: string;
+  paymentDate?: string;
+  proofImage?: string;
+  proofFilename?: string;
   createdAt: string;
   // Audit trail for the manual review decision.
   reviewedBy?: string; // admin id
   reviewedByName?: string; // admin name, denormalised for display
   reviewedAt?: string; // ISO timestamp of approve/reject
   reason?: string; // reason captured on rejection
+  refundStatus?: "pending" | "completed";
+  refundReference?: string;
+  refundDate?: string;
 }
 
 export interface Session {
@@ -120,6 +148,20 @@ export interface Settings {
   supportPhone: string;
 }
 
+export interface AuditLog {
+  id: string;
+  action: string;
+  userType: "admin" | "customer" | "system";
+  userId: string;
+  userName: string;
+  customerId?: string;
+  orderId?: string;
+  paymentId?: string;
+  reason?: string;
+  details?: string;
+  createdAt: string;
+}
+
 export interface DB {
   customers: Customer[];
   products: Product[];
@@ -130,4 +172,5 @@ export interface DB {
   admins: Admin[];
   adminSessions: AdminSession[];
   settings: Settings;
+  auditLogs: AuditLog[];
 }

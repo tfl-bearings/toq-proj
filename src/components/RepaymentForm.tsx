@@ -17,7 +17,7 @@ export default function RepaymentForm({ orderId }: { orderId: string }) {
   );
 
   return (
-    <form action={formAction}>
+    <form action={formAction} encType="multipart/form-data">
       <input type="hidden" name="orderId" value={orderId} />
 
       <fieldset className="mloan-pay-apps branded">
@@ -51,6 +51,12 @@ export default function RepaymentForm({ orderId }: { orderId: string }) {
             after paying. We verify it against our bank statement — nothing is
             approved automatically.
           </small>
+        </label>
+
+        <label className="mloan-proof-field">
+          <span>Payment screenshot / proof (optional)</span>
+          <input type="file" name="proofImage" accept="image/*" capture="environment" />
+          <small>Upload a screenshot from the payment app for quick admin review.</small>
         </label>
       </div>
 

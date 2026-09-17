@@ -17,11 +17,15 @@ export default async function AdminDashboard() {
   const customers = await listCustomers();
   const orders = await listAllOrders();
   const payments = await listPayments();
+  const applications = await listApplications();
 
   const pendingReviews = payments.filter((p) => p.status === "review").length;
-  const pendingApps = (await listApplications()).filter(
-    (a) => a.status === "pending",
-  ).length;
+  const approvedPayments = payments.filter((p) => p.status === "success" || p.status === "approved").length;
+  const rejectedPayments = payments.filter((p) => p.status === "failed" || p.status === "rejected").length;
+  const refunds = payments.filter((p) => p.status === "refund_pending" || p.status === "refunded").length;
+  const repaymentRequired = payments.filter((p) => p.status === "repayment_required").length;
+  const pendingApps = applications.filter((a) => a.status === "pending").length;
+  const activeCustomers = customers.filter((c) => c.status !== "inactive").length;
   const activeLoans = orders.filter((o) => o.status !== "paid").length;
   const outstanding = orders
     .filter((o) => o.status === "due" || o.status === "overdue")
@@ -35,19 +39,39 @@ export default async function AdminDashboard() {
       <div className="adm-cards">
         <div className="adm-card">
           <b>{customers.length}</b>
-          <small>Customers</small>
+          <small>Total customers</small>
+        </div>
+        <div className="adm-card">
+          <b>{activeCustomers}</b>
+          <small>Active customers</small>
+        </div>
+        <div className={pendingApps > 0 ? "adm-card alert" : "adm-card"}>
+          <b>{pendingApps}</b>
+          <small>Pending applications</small>
+        </div>
+        <div className={pendingReviews > 0 ? "adm-card alert" : "adm-card"}>
+          <b>{pendingReviews}</b>
+          <small>Payments pending review</small>
+        </div>
+        <div className="adm-card">
+          <b>{approvedPayments}</b>
+          <small>Approved payments</small>
+        </div>
+        <div className="adm-card">
+          <b>{rejectedPayments}</b>
+          <small>Rejected payments</small>
+        </div>
+        <div className="adm-card">
+          <b>{refunds}</b>
+          <small>Refunds</small>
+        </div>
+        <div className="adm-card">
+          <b>{repaymentRequired}</b>
+          <small>Repayments required</small>
         </div>
         <div className="adm-card">
           <b>{activeLoans}</b>
           <small>Active loans</small>
-        </div>
-        <div className={pendingApps > 0 ? "adm-card alert" : "adm-card"}>
-          <b>{pendingApps}</b>
-          <small>Applications pending</small>
-        </div>
-        <div className={pendingReviews > 0 ? "adm-card alert" : "adm-card"}>
-          <b>{pendingReviews}</b>
-          <small>Payments awaiting review</small>
         </div>
         <div className="adm-card">
           <b>{inr(outstanding)}</b>

@@ -4,6 +4,7 @@ import { hashPassword } from "./auth";
 import type {
   Admin,
   Application,
+  AuditLog,
   Customer,
   Order,
   Payment,
@@ -22,7 +23,8 @@ type RecordType =
   | "sessions"
   | "admins"
   | "admin_sessions"
-  | "settings";
+  | "settings"
+  | "audit_logs";
 
 function database() {
   const url =
@@ -97,6 +99,7 @@ async function ensureSchema(): Promise<void> {
     "admins",
     "admin_sessions",
     "settings",
+    "audit_logs",
   ]) {
     await db.query(
       `CREATE TABLE IF NOT EXISTS ${table} (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`,
@@ -191,17 +194,34 @@ export async function getCustomerById(id: string): Promise<Customer | undefined>
 export async function createCustomer(input: {
   mobile: string;
   name: string;
-  password: string;
+  password?: string;
+  email?: string;
+  status?: Customer["status"];
+  customerCode?: string;
+  upiId?: string;
+  paymentMethod?: string;
+  inviteToken?: string;
+  inviteLink?: string;
 }): Promise<Customer> {
-  const { hash, salt } = hashPassword(input.password);
+  const hashed = input.password ? hashPassword(input.password) : { hash: "", salt: "" };
   const customer: Customer = {
     id: `cust_${randomUUID().slice(0, 8)}`,
     mobile: input.mobile,
     name: input.name,
-    email: "",
-    passwordHash: hash,
-    passwordSalt: salt,
+    email: input.email ?? "",
+    passwordHash: hashed.hash,
+    passwordSalt: hashed.salt,
+    status: input.status ?? "pending",
+    paymentMethod: input.paymentMethod ?? "UPI",
+    upiId: input.upiId ?? "",
+    customerCode: input.customerCode ?? `CUST-${randomUUID().slice(0, 6).toUpperCase()}`,
+    inviteToken: input.inviteToken ?? randomUUID(),
+    inviteLink: input.inviteLink ?? "",
+    passwordSetAt: undefined,
+    activatedAt: undefined,
+    lastActivityAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
   await insert("customers", customer.id, customer);
   return customer;
@@ -209,9 +229,32 @@ export async function createCustomer(input: {
 
 export async function updateCustomer(
   id: string,
-  patch: Partial<Pick<Customer, "name" | "mobile" | "email" | "photo">>,
+  patch: Partial<
+    Pick<
+      Customer,
+      | "name"
+      | "mobile"
+      | "email"
+      | "photo"
+      | "status"
+      | "paymentMethod"
+      | "upiId"
+      | "customerCode"
+      | "inviteLink"
+      | "passwordSetAt"
+      | "activatedAt"
+      | "lastActivityAt"
+      | "updatedAt"
+      | "deactivatedAt"
+      | "inviteToken"
+    >
+  >,
 ): Promise<Customer | undefined> {
-  return update<Customer>("customers", id, patch);
+  const next = await update<Customer>("customers", id, {
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  });
+  return next;
 }
 
 export async function createSession(token: string, customerId: string) {
@@ -268,11 +311,18 @@ export async function createPayment(input: {
   upiId: string;
   utr: string;
   payApp: Payment["payApp"];
+  paymentMethod?: string;
+  paymentDate?: string;
+  proofImage?: string;
+  proofFilename?: string;
+  status?: Payment["status"];
 }): Promise<Payment> {
   const payment: Payment = {
     id: `pay_${randomUUID().slice(0, 8)}`,
     ...input,
-    status: "review",
+    status: input.status ?? "review",
+    paymentMethod: input.paymentMethod ?? "UPI",
+    paymentDate: input.paymentDate ?? new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
   await insert("payments", payment.id, payment);
@@ -342,8 +392,52 @@ export async function listCustomers(): Promise<Customer[]> {
   return all<Customer>("customers");
 }
 
+export async function searchCustomers(query: string): Promise<Customer[]> {
+  const rows = await database().query(
+    `SELECT data FROM customers WHERE LOWER(data->>'name') LIKE LOWER($1) OR LOWER(data->>'mobile') LIKE LOWER($1) OR LOWER(data->>'email') LIKE LOWER($1) OR LOWER(data->>'customerCode') LIKE LOWER($1) ORDER BY created_at DESC`,
+    [`%${query}%`],
+  );
+  return rows.map((row) => (row as Row).data as Customer);
+}
+
+export async function listPaymentsForCustomer(customerId: string): Promise<Payment[]> {
+  const rows = await database().query(
+    "SELECT data FROM payments WHERE data->>'customerId' = $1 ORDER BY created_at DESC",
+    [customerId],
+  );
+  return rows.map((row) => (row as Row).data as Payment);
+}
+
 export async function listAllOrders(): Promise<Order[]> {
   return all<Order>("orders");
+}
+
+export async function createAuditLog(input: {
+  action: string;
+  userType: AuditLog["userType"];
+  userId: string;
+  userName: string;
+  customerId?: string;
+  orderId?: string;
+  paymentId?: string;
+  reason?: string;
+  details?: string;
+}): Promise<AuditLog> {
+  const log: AuditLog = {
+    id: `audit_${randomUUID().slice(0, 8)}`,
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+  await insert("audit_logs", log.id, log);
+  return log;
+}
+
+export async function listAuditLogs(limit = 50): Promise<AuditLog[]> {
+  const rows = await database().query(
+    "SELECT data FROM audit_logs ORDER BY created_at DESC LIMIT $1",
+    [limit],
+  );
+  return rows.map((row) => (row as Row).data as AuditLog);
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -358,6 +452,10 @@ export async function updateSettings(patch: Partial<Settings>): Promise<Settings
     "global",
   ]);
   return next;
+}
+
+export async function setCustomerInviteLink(customerId: string, inviteLink: string) {
+  await updateCustomer(customerId, { inviteLink, updatedAt: new Date().toISOString() });
 }
 
 export async function createOrder(input: {

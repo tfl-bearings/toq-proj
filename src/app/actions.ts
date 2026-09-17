@@ -150,6 +150,7 @@ export async function submitRepaymentAction(
   const orderId = String(formData.get("orderId") ?? "");
   const utr = String(formData.get("utr") ?? "").trim();
   const payApp = String(formData.get("payApp") ?? "") as PayApp;
+  const proof = formData.get("proofImage") as File | null;
 
   const order = await getOrder(orderId);
   if (!order || order.customerId !== customer.id) {
@@ -165,6 +166,18 @@ export async function submitRepaymentAction(
     return { error: "Enter the 12-digit UTR / reference number from your payment." };
   }
 
+  let proofImage = "";
+  if (proof && proof.size > 0) {
+    if (!proof.type.startsWith("image/")) {
+      return { error: "Please upload a valid image file as proof." };
+    }
+    if (proof.size > 5 * 1024 * 1024) {
+      return { error: "Payment proof must be smaller than 5MB." };
+    }
+    const bytes = Buffer.from(await proof.arrayBuffer());
+    proofImage = `data:${proof.type};base64,${bytes.toString("base64")}`;
+  }
+
   await createPayment({
     orderId: order.id,
     customerId: customer.id,
@@ -172,9 +185,9 @@ export async function submitRepaymentAction(
     upiId: order.upiId,
     utr,
     payApp,
+    proofImage,
+    paymentMethod: payApp,
   });
-  // Payment is recorded and moves to manual verification — it is NOT
-  // auto-approved. A staff member confirms it against the bank statement.
   await updateOrder(order.id, { status: "review" });
   revalidatePath(`/repay/${order.id}`);
   revalidatePath("/orders");

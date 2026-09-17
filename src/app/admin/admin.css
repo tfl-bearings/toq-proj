@@ -297,6 +297,70 @@ table.adm-table {
   font-size: 12px;
   min-width: 150px;
 }
+.adm-reject-panel {
+  display: inline-block;
+}
+.adm-reject-panel summary {
+  list-style: none;
+  cursor: pointer;
+}
+.adm-reject-panel summary::-webkit-details-marker {
+  display: none;
+}
+.adm-reject-form-column {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  min-width: 220px;
+}
+.adm-reject-form-column select,
+.adm-reject-form-column input {
+  border: 1px solid #dfe5e8;
+  border-radius: 8px;
+  padding: 8px 9px;
+  font-size: 12px;
+}
+.adm-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.adm-search-row input {
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid #dfe5e8;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 13px;
+}
+.adm-link {
+  color: #0c5a8f;
+  text-decoration: none;
+  font-weight: 700;
+}
+.adm-micro {
+  font-size: 11px;
+  color: #6d7b88;
+}
+.adm-review-list {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.adm-proof-wrap {
+  margin: 12px 0;
+  border: 1px solid #e4e9ed;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fafbfd;
+}
+.adm-proof-image {
+  display: block;
+  max-width: 280px;
+  max-height: 280px;
+  object-fit: contain;
+}
 
 .adm-empty {
   padding: 26px 16px;
