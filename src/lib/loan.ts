@@ -38,8 +38,13 @@ export function dueDay(iso: string): string {
   return new Date(new Date(iso).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+// Open and waiting for the customer to pay (no payment under review).
+export function isAwaitingPayment(order: Pick<Order, "status">): boolean {
+  return order.status === "due" || order.status === "overdue";
+}
+
 export function isOverdue(order: Pick<Order, "status" | "dueDate">): boolean {
-  return order.status !== "paid" && new Date(order.dueDate).getTime() < Date.now();
+  return isAwaitingPayment(order) && new Date(order.dueDate).getTime() < Date.now();
 }
 
 // Where the customer should pay for a loan: the loan's own UPI ID if the

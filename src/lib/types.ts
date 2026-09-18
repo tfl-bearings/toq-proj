@@ -1,10 +1,13 @@
 // Shared domain types for toq-app (a loan / credit-wallet management app).
 
+// A loan's lifecycle is independent of payments: a loan can exist, be marked
+// paid or be cancelled without any payment (UTR) ever being submitted.
 export type OrderStatus =
-  | "due" // repayment is due / not yet paid
+  | "due" // awaiting customer payment
+  | "overdue" // awaiting customer payment, past the due date
   | "review" // customer submitted a UTR, awaiting manual verification
-  | "paid" // verified & closed
-  | "overdue"; // past due date, still unpaid
+  | "paid" // closed: approved payment(s) or marked paid by an operator
+  | "cancelled"; // closed by an operator without payment
 
 // pending  = created by an operator, password not yet set
 // active   = password set, can sign in
@@ -95,7 +98,27 @@ export interface Order {
   updatedAt?: string;
   paidAt?: string;
   applicationId?: string; // origin application, if created from one
+  // Marked paid by an operator without a customer payment/UTR.
+  settledBy?: string;
+  settledByName?: string;
+  settledAt?: string;
+  settledAmount?: number;
+  settlementNote?: string;
+  // Cancelled by an operator.
+  cancelledBy?: string;
+  cancelledByName?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
+  cancelNote?: string;
 }
+
+// Loan row joined with its customer and live payment state, for admin lists.
+export type OrderRow = Order & {
+  customerName?: string;
+  customerMobile?: string;
+  pendingPaymentId?: string;
+  paymentCount: number;
+};
 
 export type ApplicationStatus = "pending" | "approved" | "rejected";
 
@@ -220,6 +243,8 @@ export type NotificationKind =
   | "refund_pending"
   | "refunded"
   | "loan_created"
+  | "loan_paid"
+  | "loan_cancelled"
   | "application_approved"
   | "application_rejected";
 

@@ -4,9 +4,36 @@
 import type {
   Customer,
   CustomerStatus,
+  OrderStatus,
   PasswordSetupStatus,
   PaymentStatus,
 } from "./types";
+
+// Operator-facing loan states. A loan is independent of payments: it can be
+// awaiting payment with no UTR at all.
+export const LOAN_STATUS_LABEL: Record<OrderStatus, string> = {
+  due: "AWAITING PAYMENT",
+  overdue: "OVERDUE",
+  review: "PAYMENT SUBMITTED",
+  paid: "PAID",
+  cancelled: "CANCELLED",
+};
+
+// Loan list views in the operator console.
+export const LOAN_VIEWS = [
+  { key: "awaiting", label: "Awaiting customer payment", statuses: ["due", "overdue"] },
+  { key: "review", label: "Payment submitted / awaiting review", statuses: ["review"] },
+  { key: "paid", label: "Paid", statuses: ["paid"] },
+  { key: "cancelled", label: "Cancelled", statuses: ["cancelled"] },
+] as const satisfies readonly { key: string; label: string; statuses: readonly OrderStatus[] }[];
+
+export const LOAN_CANCEL_REASONS = [
+  "Loan cancelled",
+  "Customer request",
+  "Incorrect loan",
+  "Incorrect amount",
+  "Other",
+] as const;
 
 export const PAYMENT_STATUSES: PaymentStatus[] = [
   "pending",
@@ -125,6 +152,10 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   refund_initiated: "Refund initiated",
   refund_completed: "Refund completed",
   loan_created: "Loan created",
+  loan_marked_paid: "Loan marked paid (no UTR)",
+  loan_cancelled: "Loan cancelled",
+  loan_kept_pending: "Loan kept pending",
+  payment_kept_pending: "Payment kept pending",
   loan_application_submitted: "Loan application submitted",
   loan_application_approved: "Loan application approved",
   loan_application_rejected: "Loan application rejected",

@@ -33,7 +33,7 @@ export default async function HomePage({
   ]);
   // Everything not yet repaid, soonest due first.
   const pending = orders
-    .filter((o) => o.status !== "paid")
+    .filter((o) => o.status !== "paid" && o.status !== "cancelled")
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const due = pending.find((o) => o.status === "due" || o.status === "overdue");
   const latestPayment = payments[0];

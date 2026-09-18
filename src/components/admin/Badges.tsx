@@ -1,10 +1,17 @@
 import {
   CUSTOMER_STATUS_LABEL,
+  LOAN_STATUS_LABEL,
   PASSWORD_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
   passwordStatus,
 } from "@/lib/status";
-import type { Customer, CustomerStatus, PaymentStatus } from "@/lib/types";
+import type { Customer, CustomerStatus, Order, PaymentStatus } from "@/lib/types";
+import { isOverdue } from "@/lib/loan";
+
+export function LoanBadge({ order }: { order: Pick<Order, "status" | "dueDate"> }) {
+  const status = isOverdue(order) ? "overdue" : order.status;
+  return <span className={`adm-badge ${status}`}>{LOAN_STATUS_LABEL[status]}</span>;
+}
 
 export function PaymentBadge({ status }: { status: PaymentStatus | string }) {
   const label = PAYMENT_STATUS_LABEL[status as PaymentStatus] ?? status.toUpperCase();

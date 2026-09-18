@@ -5,7 +5,13 @@ import ActionDialog from "@/components/admin/ActionDialog";
 import CustomerForm from "@/components/admin/CustomerForm";
 import Flash from "@/components/admin/Flash";
 import ShareLink from "@/components/admin/ShareLink";
-import { CustomerStatusBadge, PasswordBadge, PaymentBadge } from "@/components/admin/Badges";
+import LoanActions from "@/components/admin/LoanActions";
+import {
+  CustomerStatusBadge,
+  LoanBadge,
+  PasswordBadge,
+  PaymentBadge,
+} from "@/components/admin/Badges";
 import { getCurrentAdmin } from "@/lib/session";
 import {
   customerHasRecords,
@@ -351,27 +357,44 @@ export default async function CustomerDetailPage({
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>Loan ID</th>
-                  <th>Product</th>
-                  <th>Borrowed</th>
+                  <th>Loan</th>
+                  <th>Amount</th>
                   <th>Paid</th>
                   <th>Still due</th>
-                  <th>Status</th>
                   <th>Due date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.map((order) => (
                   <tr key={order.id}>
-                    <td className="adm-mono">{order.id}</td>
-                    <td>{order.productName}</td>
+                    <td>
+                      <Link href={`/admin/orders/${order.id}`} className="adm-link">
+                        {order.productName}
+                      </Link>
+                      <div className="adm-micro adm-mono">{order.id}</div>
+                    </td>
                     <td>{inr(order.principal)}</td>
                     <td>{order.amountPaid ? inr(order.amountPaid) : "—"}</td>
-                    <td>{order.amountDue > 0 ? inr(order.amountDue) : "—"}</td>
                     <td>
-                      <span className={`adm-badge ${order.status}`}>{order.status}</span>
+                      {order.amountDue > 0 && order.status !== "cancelled" ? inr(order.amountDue) : "—"}
                     </td>
                     <td>{shortDate(order.dueDate)}</td>
+                    <td>
+                      <LoanBadge order={order} />
+                      {order.cancelReason ? <div className="adm-micro">{order.cancelReason}</div> : null}
+                    </td>
+                    <td>
+                      <LoanActions
+                        order={order}
+                        pendingPaymentId={
+                          payments.find((p) => p.orderId === order.id && p.status === "pending")?.id
+                        }
+                        returnTo={`/admin/customers/${customer.id}`}
+                        compact
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -14,6 +14,9 @@ const MESSAGES: Record<string, string> = {
   refund_started: "Refund initiated. Mark it refunded once the money is sent.",
   refunded: "Refund recorded. The customer has been notified.",
   loan_created: "Loan created and the customer has been notified.",
+  loan_paid: "Loan marked as paid (no UTR). The customer has been notified.",
+  loan_cancelled: "Loan cancelled. The customer has been notified with the reason.",
+  kept_pending: "Kept pending — nothing changed. Your review was recorded in the activity log.",
 };
 
 // One-shot success banner driven by ?notice=<code>. The code is removed from

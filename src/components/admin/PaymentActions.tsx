@@ -4,6 +4,7 @@ import {
   approvePaymentAction,
   completeRefundAction,
   initiateRefundAction,
+  keepPaymentPendingAction,
   rejectPaymentAction,
 } from "@/app/admin/actions";
 import { inr } from "@/lib/format";
@@ -74,6 +75,25 @@ export default function PaymentActions({
           pendingLabel="Rejecting…"
         >
           <RejectFields />
+        </ActionDialog>
+        <ActionDialog
+          action={keepPaymentPendingAction}
+          hidden={hidden}
+          triggerLabel="Keep Pending"
+          triggerClassName="adm-btn adm-btn-ghost"
+          title="Keep this payment pending?"
+          description={
+            <>
+              {inr(payment.amount)} · {who}. Nothing changes: the payment stays
+              <b> PENDING</b> for a later decision. Your review is recorded in the activity log.
+            </>
+          }
+          submitLabel="Keep pending"
+        >
+          <label className="adm-field">
+            Note (optional, internal)
+            <input name="note" maxLength={300} placeholder="e.g. Not in statement yet, recheck tomorrow" />
+          </label>
         </ActionDialog>
       </div>
     );

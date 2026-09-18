@@ -11,6 +11,7 @@ import type {
   Notification,
   NotificationKind,
   Order,
+  OrderRow,
   Payment,
   PaymentRow,
   PaymentStatus,
@@ -340,6 +341,8 @@ function num(value: unknown): number {
 }
 
 export type Page<T> = { rows: T[]; total: number };
+
+type Reviewer = { id: string; name: string };
 
 function paginate(page: number, pageSize: number) {
   const size = Math.min(Math.max(1, Math.floor(pageSize)), 100);
@@ -771,6 +774,146 @@ export async function createOrder(input: {
   return order;
 }
 
+// --- Operator actions on a loan, independent of any payment -------------------
+
+// Marks a loan awaiting payment as paid without a customer payment/UTR (e.g.
+// cash or a transfer confirmed outside the app). No payment row is created.
+// Refused while a payment is under review, so a submitted UTR is always
+// reviewed on its own.
+export async function markLoanPaid(input: {
+  orderId: string;
+  reviewer: Reviewer;
+  note?: string;
+}): Promise<Order | undefined> {
+  const now = new Date().toISOString();
+  return (
+    await rows<Order>(
+      `UPDATE orders o SET data = o.data || jsonb_build_object(
+         'status', 'paid',
+         'settledAmount', (o.data->>'amountDue')::numeric,
+         'amountPaid', COALESCE((o.data->>'amountPaid')::numeric, 0) + (o.data->>'amountDue')::numeric,
+         'amountDue', 0,
+         'paidAt', $2::text,
+         'settledAt', $2::text,
+         'settledBy', $3::text,
+         'settledByName', $4::text,
+         'settlementNote', $5::text,
+         'updatedAt', $2::text)
+       WHERE o.id = $1 AND o.data->>'status' IN ('due', 'overdue')
+         AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.data->>'orderId' = o.id AND p.data->>'status' = 'pending')
+       RETURNING o.data`,
+      [input.orderId, now, input.reviewer.id, input.reviewer.name, input.note ?? ""],
+    )
+  )[0];
+}
+
+// Cancels a loan awaiting payment. Same guards as markLoanPaid.
+export async function cancelLoan(input: {
+  orderId: string;
+  reviewer: Reviewer;
+  reason: string;
+  note?: string;
+}): Promise<Order | undefined> {
+  const now = new Date().toISOString();
+  return (
+    await rows<Order>(
+      `UPDATE orders o SET data = o.data || jsonb_build_object(
+         'status', 'cancelled',
+         'cancelledAt', $2::text,
+         'cancelledBy', $3::text,
+         'cancelledByName', $4::text,
+         'cancelReason', $5::text,
+         'cancelNote', $6::text,
+         'updatedAt', $2::text)
+       WHERE o.id = $1 AND o.data->>'status' IN ('due', 'overdue')
+         AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.data->>'orderId' = o.id AND p.data->>'status' = 'pending')
+       RETURNING o.data`,
+      [input.orderId, now, input.reviewer.id, input.reviewer.name, input.reason, input.note ?? ""],
+    )
+  )[0];
+}
+
+const ORDER_LIST = `o.data || jsonb_build_object(
+  'customerName', c.data->>'name',
+  'customerMobile', c.data->>'mobile',
+  'pendingPaymentId', (SELECT p.id FROM payments p WHERE p.data->>'orderId' = o.id AND p.data->>'status' = 'pending' LIMIT 1),
+  'paymentCount', (SELECT count(*) FROM payments p WHERE p.data->>'orderId' = o.id))`;
+
+const LOAN_VIEW_STATUSES: Record<string, string[]> = {
+  awaiting: ["due", "overdue"],
+  review: ["review"],
+  paid: ["paid"],
+  cancelled: ["cancelled"],
+};
+
+export async function getOrderRow(id: string): Promise<OrderRow | undefined> {
+  const row = (
+    await rows<OrderRow>(
+      `SELECT ${ORDER_LIST} AS data FROM orders o LEFT JOIN customers c ON c.id = o.data->>'customerId' WHERE o.id = $1`,
+      [id],
+    )
+  )[0];
+  return row && { ...row, paymentCount: num(row.paymentCount), pendingPaymentId: row.pendingPaymentId ?? undefined };
+}
+
+export async function listOrdersAdmin(filters: {
+  view?: string;
+  q?: string;
+  customerId?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<Page<OrderRow>> {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const add = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const statuses = LOAN_VIEW_STATUSES[filters.view ?? ""];
+  if (statuses) where.push(`o.data->>'status' = ANY(${add(statuses)}::text[])`);
+  if (filters.customerId) where.push(`o.data->>'customerId' = ${add(filters.customerId)}`);
+  if (filters.q) {
+    const p = add(likePattern(filters.q));
+    where.push(
+      `(o.id ILIKE ${p} OR o.data->>'productName' ILIKE ${p} OR c.data->>'name' ILIKE ${p} OR c.data->>'mobile' ILIKE ${p} OR c.data->>'customerCode' ILIKE ${p})`,
+    );
+  }
+  // Open loans: soonest due first. Closed loans: most recently changed first.
+  const order =
+    filters.view === "awaiting" || filters.view === "review"
+      ? "(o.data->>'dueDate') ASC, o.created_at ASC"
+      : "COALESCE(o.data->>'updatedAt', o.data->>'createdAt') DESC";
+  const { limit, offset } = paginate(filters.page ?? 1, filters.pageSize ?? 20);
+  const result = await query(
+    `SELECT ${ORDER_LIST} AS data, count(*) OVER()::int AS total
+     FROM orders o LEFT JOIN customers c ON c.id = o.data->>'customerId'
+     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+     ORDER BY ${order}
+     LIMIT ${limit} OFFSET ${offset}`,
+    params,
+  );
+  return {
+    rows: result.map((row) => {
+      const data = row.data as OrderRow;
+      return { ...data, paymentCount: num(data.paymentCount), pendingPaymentId: data.pendingPaymentId ?? undefined };
+    }),
+    total: result.length ? num(result[0].total) : 0,
+  };
+}
+
+export async function loanViewCounts(): Promise<Record<string, number>> {
+  const result = await query(
+    `SELECT CASE data->>'status' WHEN 'due' THEN 'awaiting' WHEN 'overdue' THEN 'awaiting' ELSE data->>'status' END AS view,
+       count(*)::int AS n FROM orders GROUP BY 1`,
+  );
+  const counts: Record<string, number> = { awaiting: 0, review: 0, paid: 0, cancelled: 0, all: 0 };
+  for (const row of result) {
+    counts[String(row.view)] = num(row.n);
+    counts.all += num(row.n);
+  }
+  return counts;
+}
+
 // --- Payments -----------------------------------------------------------------
 
 // Every list query drops the screenshot payload (up to 5 MB each); it is only
@@ -816,17 +959,29 @@ export async function createPayment(input: {
     paymentMethod: "UPI",
     createdAt: new Date().toISOString(),
   };
+  let inserted: unknown[];
   try {
-    await (await readyDatabase()).transaction((txn) => [
-      txn.query("INSERT INTO payments (id, data) VALUES ($1, $2::jsonb)", [
-        payment.id,
-        JSON.stringify(payment),
-      ]),
+    // Claim the loan first: only a loan still awaiting payment (and owned by
+    // this customer) moves to review. The payment row is inserted only if this
+    // very submission made that move, so a UTR can never reopen a loan an
+    // operator has just marked paid or cancelled, and concurrent submissions
+    // can't both land.
+    const [, insertRows] = await (await readyDatabase()).transaction((txn) => [
       txn.query(
-        `UPDATE orders SET data = data || jsonb_build_object('status', 'review', 'updatedAt', $2::text) WHERE id = $1`,
-        [payment.orderId, payment.createdAt],
+        `UPDATE orders SET data = data || jsonb_build_object(
+           'status', 'review', 'reviewPaymentId', $3::text, 'updatedAt', $4::text)
+         WHERE id = $1 AND data->>'customerId' = $2 AND data->>'status' IN ('due', 'overdue')`,
+        [payment.orderId, payment.customerId, payment.id, payment.createdAt],
+      ),
+      txn.query(
+        `INSERT INTO payments (id, data)
+         SELECT $1, $2::jsonb WHERE EXISTS (
+           SELECT 1 FROM orders WHERE id = $3 AND data->>'reviewPaymentId' = $1 AND data->>'status' = 'review')
+         RETURNING id`,
+        [payment.id, JSON.stringify(payment), payment.orderId],
       ),
     ]);
+    inserted = insertRows as unknown[];
   } catch (error) {
     if (isUniqueViolation(error)) {
       const constraint = String((error as { constraint?: string }).constraint ?? "");
@@ -834,7 +989,15 @@ export async function createPayment(input: {
     }
     throw error;
   }
+  if (inserted.length === 0) throw new LoanNotPayableError();
   return payment;
+}
+
+// The loan is no longer awaiting payment (paid, cancelled or under review).
+export class LoanNotPayableError extends Error {
+  constructor() {
+    super("This loan is no longer accepting payments. Refresh to see its current status.");
+  }
 }
 
 // A UTR still attached to a live (not rejected) payment.
@@ -980,7 +1143,6 @@ export async function paymentStatusCounts(): Promise<
   return counts;
 }
 
-type Reviewer = { id: string; name: string };
 
 // Approves a pending payment and applies it to the loan in one transaction.
 // The status guard makes a second approval (double click, two operators) a
@@ -1172,7 +1334,9 @@ export async function dashboardStats() {
        (SELECT count(*)::int FROM customers WHERE data->>'status' = 'pending') AS customers_pending,
        (SELECT count(*)::int FROM customers WHERE data->>'status' = 'inactive') AS customers_inactive,
        (SELECT count(*)::int FROM applications WHERE data->>'status' = 'pending') AS applications_pending,
-       (SELECT count(*)::int FROM orders WHERE data->>'status' <> 'paid') AS loans_active,
+       (SELECT count(*)::int FROM orders WHERE data->>'status' NOT IN ('paid', 'cancelled')) AS loans_active,
+       (SELECT count(*)::int FROM orders WHERE data->>'status' IN ('due', 'overdue')) AS loans_awaiting,
+       (SELECT count(*)::int FROM orders WHERE data->>'status' = 'cancelled') AS loans_cancelled,
        (SELECT COALESCE(sum((data->>'amountDue')::numeric), 0)::float8 FROM orders
           WHERE data->>'status' IN ('due', 'overdue', 'review')) AS outstanding`,
   );
@@ -1183,6 +1347,8 @@ export async function dashboardStats() {
     customersInactive: num(row.customers_inactive),
     applicationsPending: num(row.applications_pending),
     loansActive: num(row.loans_active),
+    loansAwaiting: num(row.loans_awaiting),
+    loansCancelled: num(row.loans_cancelled),
     outstanding: num(row.outstanding),
     payments: await paymentStatusCounts(),
   };
@@ -1223,6 +1389,7 @@ export async function createAuditLog(input: {
 export async function listAuditLogs(filters: {
   customerId?: string;
   paymentId?: string;
+  orderId?: string;
   action?: string;
   q?: string;
   page?: number;
@@ -1236,6 +1403,7 @@ export async function listAuditLogs(filters: {
   };
   if (filters.customerId) where.push(`a.data->>'customerId' = ${add(filters.customerId)}`);
   if (filters.paymentId) where.push(`a.data->>'paymentId' = ${add(filters.paymentId)}`);
+  if (filters.orderId) where.push(`a.data->>'orderId' = ${add(filters.orderId)}`);
   if (filters.action) where.push(`a.data->>'action' = ${add(filters.action)}`);
   if (filters.q) {
     const p = add(likePattern(filters.q));

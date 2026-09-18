@@ -20,6 +20,7 @@ import {
   getPaymentsForOrder,
   getProduct,
   getSettings,
+  LoanNotPayableError,
   touchCustomer,
   updateCustomer,
 } from "@/lib/db";
@@ -262,6 +263,9 @@ export async function submitRepaymentAction(
   if (!order || order.customerId !== customer.id) {
     return { error: "Loan not found." };
   }
+  if (order.status === "cancelled") {
+    return { error: "This loan was cancelled, so no payment is needed." };
+  }
   if (order.status === "paid" || order.amountDue <= 0) {
     return { error: "This loan is already fully repaid." };
   }
@@ -317,7 +321,9 @@ export async function submitRepaymentAction(
       previousPaymentId: previous?.id,
     });
   } catch (error) {
-    if (error instanceof DuplicatePaymentError) return { error: error.message };
+    if (error instanceof DuplicatePaymentError || error instanceof LoanNotPayableError) {
+      return { error: error.message };
+    }
     throw error;
   }
 

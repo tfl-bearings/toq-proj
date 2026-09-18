@@ -70,8 +70,15 @@ export default async function AdminDashboard() {
       href: "/admin/payments?status=refunded",
       sub: p.refunded.count ? inr(p.refunded.amount) : undefined,
     },
-    { value: stats.loansActive, label: "Active loans", href: "/admin/orders" },
-    { value: inr(stats.outstanding), label: "Outstanding due", href: "/admin/orders" },
+    {
+      value: stats.loansAwaiting,
+      label: "Loans awaiting customer payment",
+      href: "/admin/orders?view=awaiting",
+      sub: "No UTR submitted yet",
+    },
+    { value: stats.loansActive, label: "Active loans", href: "/admin/orders?view=all" },
+    { value: stats.loansCancelled, label: "Cancelled loans", href: "/admin/orders?view=cancelled" },
+    { value: inr(stats.outstanding), label: "Outstanding due", href: "/admin/orders?view=all" },
   ];
 
   return (
@@ -106,6 +113,13 @@ export default async function AdminDashboard() {
               <Link href="/admin/payments?status=pending">Open the review queue →</Link>
             </p>
           ) : null}
+          {stats.loansAwaiting > 0 ? (
+            <p>
+              {stats.loansAwaiting} loan{stats.loansAwaiting > 1 ? "s are" : " is"} awaiting
+              customer payment — you can mark paid, cancel or keep pending without a UTR.{" "}
+              <Link href="/admin/orders?view=awaiting">Manage loans →</Link>
+            </p>
+          ) : null}
           {p.refund_pending.count > 0 ? (
             <p>
               {p.refund_pending.count} refund{p.refund_pending.count > 1 ? "s" : ""} to
@@ -119,7 +133,7 @@ export default async function AdminDashboard() {
               <Link href="/admin/applications">Review applications →</Link>
             </p>
           ) : null}
-          {p.pending.count + p.refund_pending.count + stats.applicationsPending === 0 ? (
+          {p.pending.count + p.refund_pending.count + stats.applicationsPending + stats.loansAwaiting === 0 ? (
             <p>Nothing needs your attention right now.</p>
           ) : null}
         </div>

@@ -80,7 +80,8 @@ ADMIN_USERNAME=you ADMIN_PASSWORD='a-strong-password' npm start
 | `/admin/loans/new` | **Create a loan**: customer, free-text product name, amount and exact due date (optional per-loan UPI ID) |
 | `/admin/payments` | **Payment review** — status tabs (PENDING / APPROVED / REJECTED / REPAYMENT_REQUIRED / REFUND_PENDING / REFUNDED), search + filters + pagination; review cards with inline screenshot (zoom/rotate), approve (confirm + verified amount) / reject (reason + next step) |
 | `/admin/payments/[id]` | Full payment record, every attempt for the same loan, audit trail, refund actions |
-| `/admin/orders` | All loans and their status |
+| `/admin/orders` | **Loans**: Awaiting customer payment / Payment submitted / Paid / Cancelled; **Mark Paid**, **Cancel** (reason) or **Keep Pending** without any customer UTR |
+| `/admin/orders/[id]` | Loan detail: closure info, every payment attempt, audit trail |
 | `/admin/customers` | Customers with search / filters / pagination, account + password status, last payment |
 | `/admin/customers/new` | **Create a customer** — issues a personal single-use access link |
 | `/admin/customers/[id]` | Profile, password & activation timestamps, access link (copy / WhatsApp / SMS / email / regenerate), edit, deactivate / reactivate / delete, payment history, loans, activity |

@@ -20,6 +20,8 @@ function stateMeta(status: Order["status"]) {
   switch (status) {
     case "paid":
       return { cls: "is-paid", label: "Paid" };
+    case "cancelled":
+      return { cls: "status-overdue", label: "Cancelled" };
     case "overdue":
       return { cls: "status-overdue", label: "Overdue" };
     case "review":
@@ -104,8 +106,10 @@ export default function OrderTabs({
                   <div>
                     <dt>Action</dt>
                     <dd>
-                      {o.status === "paid" ? (
-                        <span className="mloan-pill">Closed</span>
+                      {o.status === "paid" || o.status === "cancelled" ? (
+                        <Link className="mloan-pill" href={`/repay/${o.id}`}>
+                          {o.status === "paid" ? "Closed" : "Cancelled"}
+                        </Link>
                       ) : (
                         <Link className="mloan-pill" href={`/repay/${o.id}`}>
                           {o.status === "review"

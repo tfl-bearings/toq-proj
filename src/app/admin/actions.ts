@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { newToken, verifyPassword } from "@/lib/auth";
 import {
   approvePayment,
+  cancelLoan,
   clearUpiQrImage,
   completeRefund,
   createAdminSession,
@@ -27,6 +28,7 @@ import {
   getPayment,
   getProduct,
   initiateRefund,
+  markLoanPaid,
   rejectPayment,
   rotateCustomerInvite,
   setUpiQrImage,
@@ -42,7 +44,7 @@ import {
   setAdminSessionCookie,
 } from "@/lib/session";
 import { dateTime, inr, shortDate } from "@/lib/format";
-import { REJECTION_OUTCOMES, REJECTION_REASONS } from "@/lib/status";
+import { LOAN_CANCEL_REASONS, REJECTION_OUTCOMES, REJECTION_REASONS } from "@/lib/status";
 import { field, UPI_RE, validateCustomerFields } from "@/lib/validation";
 import { sniffImage } from "@/lib/proof";
 import type { FormState } from "@/lib/form";
@@ -574,6 +576,148 @@ export async function completeRefundAction(
 
   revalidateAdmin();
   redirect(withNotice(returnTo(formData, "/admin/payments"), "refunded"));
+}
+
+// Leaves a submitted payment under review, recording that it was looked at.
+export async function keepPaymentPendingAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const paymentId = field(formData, "paymentId");
+  const note = field(formData, "note").slice(0, 300);
+  const payment = await getPayment(paymentId);
+  if (!payment) return { error: "Payment not found." };
+  if (payment.status !== "pending") {
+    return { error: `Already reviewed (${payment.status}) by ${payment.reviewedByName ?? "another operator"}.` };
+  }
+  await createAuditLog({
+    action: "payment_kept_pending",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: payment.customerId,
+    paymentId,
+    orderId: payment.orderId,
+    details: `Left pending · UTR ${payment.utr}${note ? ` · ${note}` : ""}`,
+  });
+  revalidateAdmin();
+  redirect(withNotice(returnTo(formData, "/admin/payments"), "kept_pending"));
+}
+
+// --- Loan management (independent of customer payments / UTR) ---------------
+
+const LOAN_NOT_OPEN =
+  "This loan isn't awaiting payment any more — it may have a payment under review, or already be paid or cancelled. Refresh to see its current state.";
+
+// Marks a loan paid without any customer payment/UTR. No payment record is
+// created and no UTR is invented.
+export async function markLoanPaidAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const orderId = field(formData, "orderId");
+  const note = field(formData, "note").slice(0, 300);
+  const order = await getOrder(orderId);
+  if (!order) return { error: "Loan not found." };
+
+  const updated = await markLoanPaid({ orderId, reviewer: admin, note: note || undefined });
+  if (!updated) return { error: LOAN_NOT_OPEN };
+
+  await createAuditLog({
+    action: "loan_marked_paid",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: order.customerId,
+    orderId,
+    details: `${order.productName} · ${inr(updated.settledAmount ?? order.amountDue)} marked paid directly · UTR: none${note ? ` · ${note}` : ""}`,
+  });
+  await createNotification({
+    customerId: order.customerId,
+    kind: "loan_paid",
+    title: "Loan marked as paid",
+    message: `Your ${order.productName} loan of ${inr(updated.settledAmount ?? order.amountDue)} has been marked as paid. No further payment is needed.`,
+    orderId,
+  });
+
+  revalidateAdmin();
+  revalidatePath("/home");
+  revalidatePath("/orders");
+  redirect(withNotice(returnTo(formData, "/admin/orders"), "loan_paid"));
+}
+
+export async function cancelLoanAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const orderId = field(formData, "orderId");
+  const choice = field(formData, "cancelReason");
+  const custom = field(formData, "customReason").slice(0, 300);
+  if (!(LOAN_CANCEL_REASONS as readonly string[]).includes(choice)) {
+    return { error: "Choose a reason." };
+  }
+  if (choice === "Other" && custom.length < 3) {
+    return { error: "Describe the reason when choosing “Other”." };
+  }
+  const order = await getOrder(orderId);
+  if (!order) return { error: "Loan not found." };
+
+  const reason = choice === "Other" ? custom : choice;
+  const note = choice === "Other" ? undefined : custom || undefined;
+  const updated = await cancelLoan({ orderId, reviewer: admin, reason, note });
+  if (!updated) return { error: LOAN_NOT_OPEN };
+
+  await createAuditLog({
+    action: "loan_cancelled",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: order.customerId,
+    orderId,
+    reason,
+    details: `${order.productName} · ${inr(order.amountDue)} cancelled · UTR: none${note ? ` · ${note}` : ""}`,
+  });
+  await createNotification({
+    customerId: order.customerId,
+    kind: "loan_cancelled",
+    title: "Loan cancelled",
+    message: `Your ${order.productName} loan of ${inr(order.amountDue)} was cancelled: ${reason}.${note ? ` ${note}` : ""} No payment is needed.`,
+    orderId,
+  });
+
+  revalidateAdmin();
+  revalidatePath("/home");
+  revalidatePath("/orders");
+  redirect(withNotice(returnTo(formData, "/admin/orders"), "loan_cancelled"));
+}
+
+// Leaves an open loan exactly as it is; the review is recorded in the audit log.
+export async function keepLoanPendingAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const orderId = field(formData, "orderId");
+  const note = field(formData, "note").slice(0, 300);
+  const order = await getOrder(orderId);
+  if (!order) return { error: "Loan not found." };
+  if (order.status === "paid" || order.status === "cancelled") {
+    return { error: `This loan is already ${order.status}.` };
+  }
+  await createAuditLog({
+    action: "loan_kept_pending",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: order.customerId,
+    orderId,
+    details: `${order.productName} · ${inr(order.amountDue)} left ${order.status === "review" ? "with payment under review" : "awaiting payment"}${note ? ` · ${note}` : ""}`,
+  });
+  revalidateAdmin();
+  redirect(withNotice(returnTo(formData, "/admin/orders"), "kept_pending"));
 }
 
 // --- Loan origination --------------------------------------------------------

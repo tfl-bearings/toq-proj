@@ -22,9 +22,15 @@ function LoanSummary({ order }: { order: Order }) {
       <h2>{order.productName}</h2>
       <dl>
         <div>
-          <dt>{order.status === "paid" ? "Amount" : "Amount Due"}</dt>
+          <dt>{order.status === "paid" || order.status === "cancelled" ? "Amount" : "Amount Due"}</dt>
           <dd className="mloan-due-amount">
-            {inr(order.status === "paid" ? order.amountPaid ?? order.principal : order.amountDue)}
+            {inr(
+              order.status === "paid"
+                ? order.amountPaid ?? order.principal
+                : order.status === "cancelled"
+                  ? order.principal
+                  : order.amountDue,
+            )}
           </dd>
         </div>
         <div>
@@ -80,8 +86,39 @@ export default async function RepayPage({
             <span className="mloan-result-icon mloan-result-success-icon" aria-hidden>
               ✓
             </span>
-            <strong>Payment Successful</strong>
-            <span>This loan is fully repaid and closed. Thank you.</span>
+            <strong>{order.settledAt ? "Loan Paid" : "Payment Successful"}</strong>
+            <span>
+              {order.settledAt
+                ? `Marked as paid by our team on ${shortDate(order.settledAt)}. No further payment is needed.`
+                : "This loan is fully repaid and closed. Thank you."}
+            </span>
+            <Link className="mloan-btn mloan-btn-secondary mloan-result-action" href="/orders">
+              Back to my loans
+            </Link>
+          </div>
+        </section>
+        {history}
+      </AppShell>
+    );
+  }
+
+  // Cancelled by the operator: nothing to pay ----------------------------------
+  if (order.status === "cancelled") {
+    return (
+      <AppShell variant="inner" title="Repayment" initial={initial} back="/orders">
+        <section className="mloan-payment-page">
+          <LoanSummary order={order} />
+          <div className="mloan-payment-result mloan-payment-failed">
+            <span className="mloan-result-icon mloan-result-failed-icon" aria-hidden>
+              ✕
+            </span>
+            <strong>Loan Cancelled</strong>
+            <span>
+              {order.cancelReason ? `Reason: ${order.cancelReason}.` : ""}
+              {order.cancelNote ? ` ${order.cancelNote}` : ""} This loan was cancelled
+              {order.cancelledAt ? ` on ${shortDate(order.cancelledAt)}` : ""}. No payment is
+              needed.
+            </span>
             <Link className="mloan-btn mloan-btn-secondary mloan-result-action" href="/orders">
               Back to my loans
             </Link>

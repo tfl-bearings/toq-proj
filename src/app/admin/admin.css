@@ -754,6 +754,11 @@ a.adm-card:hover {
 .adm-badge.repayment_required { background: #fff4ce; color: #886200; }
 .adm-badge.refund_pending { background: #f3ecff; color: #6a3fc1; }
 .adm-badge.refunded { background: #eef1f4; color: #45525d; }
+/* status badges: loans (due / overdue / review / paid defined above) */
+.adm-badge.cancelled { background: #eef1f4; color: #6b7883; }
+.adm-actions-compact { flex-wrap: nowrap; gap: 6px; }
+.adm-actions-compact .adm-btn { padding: 6px 10px; font-size: 11px; white-space: nowrap; }
+
 /* status badges: customers */
 .adm-badge.active { background: #e9f8ef; color: #17824f; }
 .adm-badge.inactive { background: #eef1f4; color: #6b7883; }
@@ -795,6 +800,9 @@ a.adm-card:hover {
   border-radius: 14px;
   box-shadow: 0 24px 70px rgba(7, 20, 31, 0.35);
   color: #1a222b;
+  /* Dialogs can open from table cells, which don't wrap text. */
+  white-space: normal;
+  text-align: left;
 }
 .adm-dialog::backdrop { background: rgba(7, 20, 31, 0.5); }
 .adm-dialog-body { padding: 18px 18px 16px; }
