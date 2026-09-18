@@ -731,36 +731,41 @@ export async function listAllOrders(): Promise<(Order & { customerName?: string 
   );
 }
 
+// Creates a loan. Without an explicit UPI ID the loan follows the collection
+// UPI configured in Settings (see repaymentUpi in lib/loan.ts).
 export async function createOrder(input: {
   customerId: string;
-  productId: string;
   productName: string;
   principal: number;
   amountDue: number;
-  tenureMonths: number;
-  rateMonthly: number;
   dueDate: string;
+  productId?: string;
+  tenureMonths?: number;
+  rateMonthly?: number;
   upiId?: string;
   payeeName?: string;
   applicationId?: string;
+  createdBy?: string;
 }): Promise<Order> {
-  const settings = await getSettings();
+  const now = new Date().toISOString();
   const order: Order = {
-    id: `ord_${randomUUID().slice(0, 6)}`,
+    id: `ord_${randomUUID().replace(/-/g, "").slice(0, 10)}`,
     customerId: input.customerId,
-    productId: input.productId,
     productName: input.productName,
     principal: input.principal,
     amountDue: input.amountDue,
     amountPaid: 0,
-    tenureMonths: input.tenureMonths,
-    rateMonthly: input.rateMonthly,
     status: "due",
-    upiId: input.upiId ?? settings.upiId,
-    payeeName: input.payeeName ?? settings.payeeName,
+    upiId: input.upiId ?? "",
+    payeeName: input.payeeName ?? "",
     dueDate: input.dueDate,
-    createdAt: new Date().toISOString(),
-    applicationId: input.applicationId,
+    createdAt: now,
+    updatedAt: now,
+    ...(input.productId ? { productId: input.productId } : {}),
+    ...(input.tenureMonths ? { tenureMonths: input.tenureMonths } : {}),
+    ...(input.rateMonthly ? { rateMonthly: input.rateMonthly } : {}),
+    ...(input.applicationId ? { applicationId: input.applicationId } : {}),
+    ...(input.createdBy ? { createdBy: input.createdBy } : {}),
   };
   await insert("orders", order.id, order);
   return order;
@@ -794,9 +799,10 @@ export async function createPayment(input: {
   customerId: string;
   amount: number;
   amountDueAtSubmission: number;
+  productName: string;
   upiId: string;
   utr: string;
-  payApp: Payment["payApp"];
+  payApp?: Payment["payApp"];
   paymentDate: string;
   proofImage?: string;
   proofMime?: string;
@@ -817,8 +823,8 @@ export async function createPayment(input: {
         JSON.stringify(payment),
       ]),
       txn.query(
-        `UPDATE orders SET data = jsonb_set(data, '{status}', '"review"') WHERE id = $1`,
-        [payment.orderId],
+        `UPDATE orders SET data = data || jsonb_build_object('status', 'review', 'updatedAt', $2::text) WHERE id = $1`,
+        [payment.orderId, payment.createdAt],
       ),
     ]);
   } catch (error) {
@@ -1011,7 +1017,8 @@ export async function approvePayment(input: {
            ELSE 'due' END,
          'paidAt', CASE
            WHEN (o.data->>'amountDue')::numeric - $2::numeric <= 0 THEN to_jsonb($4::text)
-           ELSE COALESCE(o.data->'paidAt', 'null'::jsonb) END)
+           ELSE COALESCE(o.data->'paidAt', 'null'::jsonb) END,
+         'updatedAt', $4::text)
        WHERE o.id = (SELECT p.data->>'orderId' FROM payments p WHERE p.id = $1)
          AND EXISTS (SELECT 1 FROM payments p WHERE p.id = $1
                      AND p.data->>'status' = 'approved' AND p.data->>'reviewedAt' = $4
@@ -1055,8 +1062,9 @@ export async function rejectPayment(input: {
       [input.paymentId, JSON.stringify(patch)],
     ),
     txn.query(
-      `UPDATE orders o SET data = jsonb_set(o.data, '{status}', to_jsonb(
-         CASE WHEN (o.data->>'dueDate')::timestamptz < now() THEN 'overdue' ELSE 'due' END))
+      `UPDATE orders o SET data = o.data || jsonb_build_object(
+         'status', CASE WHEN (o.data->>'dueDate')::timestamptz < now() THEN 'overdue' ELSE 'due' END,
+         'updatedAt', $2::text)
        WHERE o.id = (SELECT p.data->>'orderId' FROM payments p WHERE p.id = $1)
          AND o.data->>'status' = 'review'
          AND EXISTS (SELECT 1 FROM payments p WHERE p.id = $1
@@ -1310,6 +1318,34 @@ export async function updateSettings(patch: Partial<Settings>): Promise<Settings
     "global",
   ]);
   return next;
+}
+
+// Optional uploaded UPI QR (e.g. the merchant QR from the bank). Stored in its
+// own settings row so the settings read on every page stays small.
+export async function getUpiQrInfo(): Promise<{ updatedAt: string } | undefined> {
+  return (
+    await rows<{ updatedAt: string }>(
+      "SELECT jsonb_build_object('updatedAt', data->>'updatedAt') AS data FROM settings WHERE id = 'upi_qr'",
+    )
+  )[0];
+}
+
+export async function getUpiQrImage(): Promise<string | undefined> {
+  return (
+    await rows<{ image: string }>("SELECT data FROM settings WHERE id = 'upi_qr'")
+  )[0]?.image;
+}
+
+export async function setUpiQrImage(image: string): Promise<void> {
+  await query(
+    `INSERT INTO settings (id, data) VALUES ('upi_qr', $1::jsonb)
+     ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+    [JSON.stringify({ image, updatedAt: new Date().toISOString() })],
+  );
+}
+
+export async function clearUpiQrImage(): Promise<void> {
+  await query("DELETE FROM settings WHERE id = 'upi_qr'");
 }
 
 // --- Loan applications ----------------------------------------------------------

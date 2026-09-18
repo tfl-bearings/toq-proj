@@ -10,11 +10,15 @@ import { PaymentBadge } from "@/components/admin/Badges";
 import { getCurrentAdmin } from "@/lib/session";
 import { listPaymentsAdmin, paymentStatusCounts } from "@/lib/db";
 import { dateTime, inr, shortDate } from "@/lib/format";
-import { PAYMENT_STATUSES, PAYMENT_STATUS_LABEL, isPaymentStatus } from "@/lib/status";
+import {
+  PAYMENT_STATUSES,
+  PAYMENT_STATUS_LABEL,
+  isPaymentStatus,
+  paymentMethodLabel,
+} from "@/lib/status";
 import type { PaymentRow } from "@/lib/types";
 
 const PAGE_SIZE = 20;
-const PAY_APP: Record<string, string> = { phonepe: "PhonePe", paytm: "Paytm", gpay: "GPay" };
 
 type Search = {
   status?: string;
@@ -71,11 +75,11 @@ function ReviewCard({ p, returnTo }: { p: PaymentRow; returnTo: string }) {
           <div>
             <dt>Method</dt>
             <dd>
-              {p.paymentMethod ?? "UPI"} · {PAY_APP[p.payApp] ?? p.payApp}
+              {paymentMethodLabel(p)}
             </dd>
           </div>
           <div>
-            <dt>Paid on</dt>
+            <dt>Payment date</dt>
             <dd>{p.paymentDate ? shortDate(p.paymentDate) : "—"}</dd>
           </div>
           <div>
@@ -87,9 +91,9 @@ function ReviewCard({ p, returnTo }: { p: PaymentRow; returnTo: string }) {
             <dd className="adm-mono">{p.upiId}</dd>
           </div>
           <div>
-            <dt>Loan</dt>
+            <dt>Product</dt>
             <dd>
-              {p.productName ?? "—"} <span className="adm-micro adm-mono">{p.orderId}</span>
+              <b>{p.productName ?? "—"}</b> <span className="adm-micro adm-mono">{p.orderId}</span>
             </dd>
           </div>
         </dl>
@@ -189,12 +193,6 @@ export default async function AdminPaymentsPage({
             placeholder="Customer, mobile, UTR, transaction or loan ID"
             aria-label="Search payments"
           />
-          <select name="method" defaultValue={sp.method ?? ""} aria-label="Payment app">
-            <option value="">Any app</option>
-            <option value="phonepe">PhonePe</option>
-            <option value="paytm">Paytm</option>
-            <option value="gpay">GPay</option>
-          </select>
           <label className="adm-inline-field">
             From
             <input type="date" name="from" defaultValue={sp.from} />
@@ -273,7 +271,7 @@ export default async function AdminPaymentsPage({
                       ) : null}
                     </td>
                     <td className="adm-mono">{p.utr}</td>
-                    <td>{PAY_APP[p.payApp] ?? p.payApp}</td>
+                    <td>{paymentMethodLabel(p)}</td>
                     <td>
                       <PaymentBadge status={p.status} />
                     </td>

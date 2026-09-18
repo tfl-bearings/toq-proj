@@ -15,9 +15,8 @@ import {
   listAuditLogs,
 } from "@/lib/db";
 import { dateTime, inr, shortDate } from "@/lib/format";
-import { auditLabel } from "@/lib/status";
+import { auditLabel, paymentMethodLabel } from "@/lib/status";
 
-const PAY_APP: Record<string, string> = { phonepe: "PhonePe", paytm: "Paytm", gpay: "GPay" };
 
 export default async function PaymentDetailPage({
   params,
@@ -86,7 +85,7 @@ export default async function PaymentDetailPage({
             </dd>
             <dt>Payment method</dt>
             <dd>
-              {payment.paymentMethod ?? "UPI"} · {PAY_APP[payment.payApp] ?? payment.payApp}
+              {paymentMethodLabel(payment)}
             </dd>
             <dt>Paid to (UPI)</dt>
             <dd className="adm-mono">{payment.upiId}</dd>

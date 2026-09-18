@@ -1004,6 +1004,38 @@ a.adm-card:hover {
   background: #f7f9fa;
 }
 
+/* settings: UPI QR upload */
+.adm-upi-qr { padding: 0 16px 16px; }
+.adm-upi-qr-row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.adm-upi-qr-preview {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  border: 1px solid #e4e9ed;
+  border-radius: 10px;
+  background: #fff;
+}
+.adm-upi-qr-empty {
+  width: 150px;
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px;
+  border: 1px dashed #d7dde2;
+  border-radius: 10px;
+  color: #6b7883;
+  font-size: 12px;
+  background: #fafbfc;
+}
+.adm-upi-qr-controls { flex: 1 1 240px; display: grid; gap: 8px; }
+.adm-upi-qr-controls .adm-field { margin-bottom: 0; }
+.adm-upi-qr-controls input[type="file"] { font-size: 13px; padding: 8px; }
+.adm-upi-qr-controls small { color: #6b7883; font-size: 12px; }
+.adm-check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: #303840; }
+.adm-field-hint { display: block; margin-top: 5px; font-weight: 400; color: #6b7883; font-size: 11px; }
+
 /* activity timeline */
 .adm-timeline { list-style: none; margin: 0; padding: 6px 16px 10px; }
 .adm-timeline li {

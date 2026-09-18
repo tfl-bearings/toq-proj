@@ -62,10 +62,10 @@ ADMIN_USERNAME=you ADMIN_PASSWORD='a-strong-password' npm start
 | Route | Page |
 |-------|------|
 | `/login` | Mobile + password sign-in / register (PWA, installable) |
-| `/home` | Dashboard: greeting, quick actions, virtual card, loan products |
+| `/home` | Dashboard: **Pending Loans / Dues** (product, amount, due date, Repay), latest payment status, quick actions, loan products |
 | `/loan/[id]` | Loan product detail: amount range, why-us, reviews, FAQ |
 | `/orders` | Your loans with filter tabs (Due / Under review / Completed) |
-| `/repay/[orderId]` | UPI QR + copyable UPI ID + countdown + UTR proof form |
+| `/repay/[orderId]` | Product, amount due, due date · UPI ID with **Copy UPI ID** · UPI QR · 12-digit UTR (+ optional screenshot) |
 | `/loan/[id]/apply` | **Apply for a loan** — amount, tenure, purpose (with live repayable estimate) |
 | `/profile`, `/profile/edit` | View + edit name/email (mobile is the login ID) |
 | `/about`, `/faq`, `/support` | Info pages |
@@ -77,7 +77,7 @@ ADMIN_USERNAME=you ADMIN_PASSWORD='a-strong-password' npm start
 | `/admin/login` | Operator sign-in (DB-backed, hashed, seeded from env) |
 | `/admin` | Dashboard: customers, active loans, pending applications, pending reviews, outstanding |
 | `/admin/applications` | **Application review** — edit product/amount/tenure, then approve (creates the loan) or reject with a reason |
-| `/admin/loans/new` | **Create a loan** directly for any customer |
+| `/admin/loans/new` | **Create a loan**: customer, free-text product name, amount and exact due date (optional per-loan UPI ID) |
 | `/admin/payments` | **Payment review** — status tabs (PENDING / APPROVED / REJECTED / REPAYMENT_REQUIRED / REFUND_PENDING / REFUNDED), search + filters + pagination; review cards with inline screenshot (zoom/rotate), approve (confirm + verified amount) / reject (reason + next step) |
 | `/admin/payments/[id]` | Full payment record, every attempt for the same loan, audit trail, refund actions |
 | `/admin/orders` | All loans and their status |
@@ -85,7 +85,7 @@ ADMIN_USERNAME=you ADMIN_PASSWORD='a-strong-password' npm start
 | `/admin/customers/new` | **Create a customer** — issues a personal single-use access link |
 | `/admin/customers/[id]` | Profile, password & activation timestamps, access link (copy / WhatsApp / SMS / email / regenerate), edit, deactivate / reactivate / delete, payment history, loans, activity |
 | `/admin/activity` | Audit log of operator and customer actions, filterable |
-| `/admin/settings` | **App name + theme color** (preset swatches / picker), collection UPI/payee, support contact — all applied live |
+| `/admin/settings` | **App name + theme color**, collection **UPI ID** / payee, optional uploaded **UPI QR image**, support contact — all applied live |
 
 ### Dynamic branding
 
@@ -109,7 +109,8 @@ Customer applies (/loan/[id]/apply)  ─►  Application (pending)
         │                       • Approve ─► creates Loan (status: due)   ─► shows on customer dashboard
         │                       • Reject  ─► reason shown to customer
         │
-Admin can also create a loan directly (/admin/loans/new)
+Admin can also create a loan directly (/admin/loans/new):
+        │   product name + amount + due date — no rate or tenure
         │
 Customer repays the loan by UPI + UTR  ─►  Payment (review)
         │

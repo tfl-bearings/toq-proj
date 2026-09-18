@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { newToken, verifyPassword } from "@/lib/auth";
 import {
   approvePayment,
+  clearUpiQrImage,
   completeRefund,
   createAdminSession,
   createAuditLog,
@@ -28,22 +29,26 @@ import {
   initiateRefund,
   rejectPayment,
   rotateCustomerInvite,
+  setUpiQrImage,
   updateApplication,
   updateCustomer,
   updateSettings,
 } from "@/lib/db";
-import { addMonthsIso, totalRepayable } from "@/lib/loan";
+import { addMonthsIso, dueDateFromDay, todayIst, totalRepayable } from "@/lib/loan";
 import {
   ADMIN_SESSION_COOKIE,
   clearAdminSessionCookie,
   getCurrentAdmin,
   setAdminSessionCookie,
 } from "@/lib/session";
-import { dateTime, inr } from "@/lib/format";
+import { dateTime, inr, shortDate } from "@/lib/format";
 import { REJECTION_OUTCOMES, REJECTION_REASONS } from "@/lib/status";
-import { field, validateCustomerFields } from "@/lib/validation";
+import { field, UPI_RE, validateCustomerFields } from "@/lib/validation";
+import { sniffImage } from "@/lib/proof";
 import type { FormState } from "@/lib/form";
 import type { Admin, Customer } from "@/lib/types";
+
+const UPI_QR_MAX_BYTES = 1024 * 1024;
 
 async function requireAdmin(): Promise<Admin> {
   const admin = await getCurrentAdmin();
@@ -573,41 +578,54 @@ export async function completeRefundAction(
 
 // --- Loan origination --------------------------------------------------------
 
-// Admin creates a loan directly for a customer.
+// Admin creates a loan directly for a customer: a free-text product name, the
+// exact amount to repay and the exact due date. No catalogue product, rate or
+// tenure is involved.
 export async function createLoanAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const admin = await requireAdmin();
-  const customerId = String(formData.get("customerId") ?? "");
-  const productId = String(formData.get("productId") ?? "");
-  const principal = Number(formData.get("amount"));
-  const tenureMonths = Number(formData.get("tenureMonths"));
+  const customerId = field(formData, "customerId");
+  const productName = field(formData, "productName").replace(/\s+/g, " ");
+  const amountRaw = field(formData, "amount");
+  const dueDay = field(formData, "dueDate");
+  const upiId = field(formData, "upiId");
 
   const customer = await getCustomerById(customerId);
   if (!customer) return { error: "Select a customer." };
   if (customer.status === "inactive") {
     return { error: "This customer is deactivated. Reactivate them first." };
   }
-  const product = await getProduct(productId);
-  if (!product) return { error: "Select a loan product." };
-  if (!Number.isFinite(principal) || principal <= 0) {
-    return { error: "Enter a valid loan amount." };
+  if (productName.length < 2 || productName.length > 60) {
+    return { error: "Enter a product name (2–60 characters)." };
   }
-  if (!Number.isFinite(tenureMonths) || tenureMonths < 1 || tenureMonths > 60) {
-    return { error: "Enter a valid tenure (1–60 months)." };
+  const amount = Number(amountRaw);
+  if (!/^\d+$/.test(amountRaw) || !Number.isSafeInteger(amount) || amount < 1 || amount > 10_000_000) {
+    return { error: "Enter the loan amount in whole rupees (₹1 – ₹1,00,00,000)." };
+  }
+  const today = todayIst();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDay) || Number.isNaN(Date.parse(dueDay))) {
+    return { error: "Select a valid due date." };
+  }
+  if (dueDay < today) {
+    return { error: "The due date can't be in the past." };
+  }
+  if (Date.parse(dueDay) - Date.parse(today) > 5 * 366 * 24 * 60 * 60 * 1000) {
+    return { error: "The due date must be within the next 5 years." };
+  }
+  if (upiId && !UPI_RE.test(upiId)) {
+    return { error: "Enter a valid UPI ID like name@bank, or leave it blank to use Settings." };
   }
 
-  const amountDue = totalRepayable(principal, product.rateMonthly, tenureMonths);
   const order = await createOrder({
     customerId: customer.id,
-    productId: product.id,
-    productName: product.name,
-    principal: Math.round(principal),
-    amountDue,
-    tenureMonths: Math.round(tenureMonths),
-    rateMonthly: product.rateMonthly,
-    dueDate: addMonthsIso(Math.round(tenureMonths)),
+    productName,
+    principal: amount,
+    amountDue: amount,
+    dueDate: dueDateFromDay(dueDay),
+    upiId: upiId || undefined,
+    createdBy: admin.id,
   });
   await createAuditLog({
     action: "loan_created",
@@ -616,18 +634,20 @@ export async function createLoanAction(
     userName: admin.name,
     customerId: customer.id,
     orderId: order.id,
-    details: `${product.name} · ${inr(order.principal)} for ${order.tenureMonths} months · ${inr(amountDue)} repayable`,
+    details: `${productName} · ${inr(amount)} · due ${shortDate(order.dueDate)}${upiId ? ` · UPI ${upiId}` : ""}`,
   });
   await createNotification({
     customerId: customer.id,
     kind: "loan_created",
     title: "New loan added",
-    message: `${product.name} of ${inr(order.principal)} was added to your account. ${inr(amountDue)} is repayable.`,
+    message: `${productName}: ${inr(amount)} is due by ${shortDate(order.dueDate)}.`,
     orderId: order.id,
   });
 
   revalidateAdmin();
-  redirect("/admin/orders?notice=loan_created");
+  revalidatePath("/home");
+  revalidatePath("/orders");
+  redirect(`/admin/customers/${customer.id}?notice=loan_created`);
 }
 
 // Approve an application (possibly with edited product/amount/tenure) -> loan.
@@ -764,6 +784,30 @@ export async function updateSettingsAction(
   if (themeColorRaw && !/^#[0-9a-fA-F]{6}$/.test(themeColorRaw)) {
     return { error: "Theme color must be a 6-digit hex like #66c4ff." };
   }
+  if (!UPI_RE.test(upiId)) {
+    return { error: "Enter the collection UPI ID customers should pay to, like name@bank." };
+  }
+  if (payeeName.length < 2) {
+    return { error: "Enter the payee name shown in UPI apps." };
+  }
+
+  // Optional uploaded UPI QR (e.g. the merchant QR issued by the bank).
+  const qrFile = formData.get("upiQrImage");
+  const removeQr = field(formData, "removeUpiQr") === "1";
+  let qrChange = "";
+  if (qrFile instanceof File && qrFile.size > 0) {
+    if (qrFile.size > UPI_QR_MAX_BYTES) {
+      return { error: "The UPI QR image must be smaller than 1MB." };
+    }
+    const bytes = Buffer.from(await qrFile.arrayBuffer());
+    const mime = sniffImage(bytes);
+    if (!mime) return { error: "Upload the UPI QR as a JPG, PNG or WebP image." };
+    await setUpiQrImage(`data:${mime};base64,${bytes.toString("base64")}`);
+    qrChange = " · UPI QR image uploaded";
+  } else if (removeQr) {
+    await clearUpiQrImage();
+    qrChange = " · UPI QR image removed";
+  }
 
   await updateSettings({
     appName,
@@ -778,7 +822,7 @@ export async function updateSettingsAction(
     userType: "admin",
     userId: admin.id,
     userName: admin.name,
-    details: `App name “${appName}”, collection UPI ${upiId || "—"}, payee ${payeeName || "—"}`,
+    details: `App name “${appName}”, collection UPI ${upiId}, payee ${payeeName}${qrChange}`,
   });
   revalidatePath("/", "layout");
   return { ok: true };

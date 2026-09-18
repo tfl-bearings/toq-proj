@@ -71,21 +71,28 @@ export interface Product {
   badge?: string;
 }
 
+// A loan. Operators create loans with a free-text product name, an amount and
+// an exact due date. Loans approved from a customer application (and older
+// loans) also carry the catalogue product, tenure and monthly rate.
 export interface Order {
   id: string;
   customerId: string;
-  productId: string;
+  productId?: string; // catalogue product, application-originated loans only
   productName: string;
-  principal: number; // amount originally borrowed
+  principal: number; // amount originally lent
   amountDue: number; // amount still to repay
   amountPaid?: number; // sum of approved payments
-  tenureMonths: number; // term of the loan
-  rateMonthly: number; // % per month applied
+  tenureMonths?: number; // application-originated loans only
+  rateMonthly?: number; // % per month, application-originated loans only
   status: OrderStatus;
-  upiId: string; // collection VPA for repayment
-  payeeName: string; // name shown on the UPI request
-  dueDate: string; // ISO date
+  // Collection VPA / payee for this loan. Empty means "use the collection UPI
+  // from Settings", so repayment details follow the operator's configuration.
+  upiId: string;
+  payeeName: string;
+  dueDate: string; // ISO timestamp (end of the due day, IST)
   createdAt: string;
+  createdBy?: string; // admin id, for operator-created loans
+  updatedAt?: string;
   paidAt?: string;
   applicationId?: string; // origin application, if created from one
 }
@@ -113,12 +120,13 @@ export interface Payment {
   id: string;
   orderId: string;
   customerId: string;
-  amount: number; // amount the customer says they paid
+  amount: number; // amount submitted (the amount due at submission)
+  productName?: string; // loan product, denormalised for history
   approvedAmount?: number; // amount verified by the reviewer
   amountDueAtSubmission?: number;
   upiId: string; // collection VPA the customer paid to
   utr: string; // 12-digit UPI transaction reference the customer enters
-  payApp: PayApp;
+  payApp?: PayApp; // UPI app, recorded on older submissions
   status: PaymentStatus;
   paymentMethod?: string;
   paymentDate?: string;

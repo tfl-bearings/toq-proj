@@ -19,6 +19,7 @@ import {
   getOrder,
   getPaymentsForOrder,
   getProduct,
+  getSettings,
   touchCustomer,
   updateCustomer,
 } from "@/lib/db";
@@ -39,10 +40,9 @@ import {
   validatePassword,
 } from "@/lib/validation";
 import { inr } from "@/lib/format";
-import type { PayApp } from "@/lib/types";
+import { repaymentUpi } from "@/lib/loan";
 import type { FormState } from "@/lib/form";
 
-const PAY_APPS: PayApp[] = ["phonepe", "paytm", "gpay"];
 
 // --- Login / register --------------------------------------------------------
 
@@ -246,10 +246,6 @@ export async function applyForLoanAction(
 
 // --- Repayment ---------------------------------------------------------------
 
-function todayIst(): string {
-  return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
 export async function submitRepaymentAction(
   _prev: FormState,
   formData: FormData,
@@ -259,47 +255,21 @@ export async function submitRepaymentAction(
 
   const orderId = field(formData, "orderId");
   const utr = field(formData, "utr");
-  const payApp = field(formData, "payApp") as PayApp;
-  const amountRaw = field(formData, "amount");
-  const paymentDateRaw = field(formData, "paymentDate");
   const proof = formData.get("proofImage");
 
   // Ownership is checked server-side: a customer can only pay their own loan.
   const order = await getOrder(orderId);
   if (!order || order.customerId !== customer.id) {
-    return { error: "Order not found." };
+    return { error: "Loan not found." };
   }
-  if (order.status === "paid") {
+  if (order.status === "paid" || order.amountDue <= 0) {
     return { error: "This loan is already fully repaid." };
   }
   if (order.status === "review") {
     return { error: "A payment for this loan is already under review." };
   }
-  if (!PAY_APPS.includes(payApp)) {
-    return { error: "Please choose the app you paid with." };
-  }
   if (!UTR_RE.test(utr)) {
-    return { error: "Enter the 12-digit UTR / reference number from your payment." };
-  }
-
-  const amount = amountRaw ? Number(amountRaw) : order.amountDue;
-  if (!Number.isInteger(amount) || amount < 1) {
-    return { error: "Enter the amount you paid in whole rupees." };
-  }
-  if (amount > order.amountDue) {
-    return { error: `The amount can't be more than the ${inr(order.amountDue)} due.` };
-  }
-
-  const today = todayIst();
-  const paymentDay = paymentDateRaw || today;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDay) || Number.isNaN(Date.parse(paymentDay))) {
-    return { error: "Enter a valid payment date." };
-  }
-  if (paymentDay > today) {
-    return { error: "The payment date can't be in the future." };
-  }
-  if (Date.parse(today) - Date.parse(paymentDay) > 365 * 24 * 60 * 60 * 1000) {
-    return { error: "The payment date must be within the last year." };
+    return { error: "Please enter a valid 12-digit UTR number." };
   }
 
   let proofImage: string | undefined;
@@ -307,7 +277,7 @@ export async function submitRepaymentAction(
   let proofFilename: string | undefined;
   if (proof instanceof File && proof.size > 0) {
     if (proof.size > PROOF_MAX_BYTES) {
-      return { error: "Payment proof must be smaller than 4MB." };
+      return { error: "Payment screenshot must be smaller than 4MB." };
     }
     const bytes = Buffer.from(await proof.arrayBuffer());
     // The browser's MIME type is not trusted; the file content decides.
@@ -321,25 +291,26 @@ export async function submitRepaymentAction(
   }
 
   if (await findLivePaymentByUtr(utr)) {
-    return { error: "This UTR has already been submitted. Check the reference and try again." };
+    return { error: "This UTR has already been submitted. Check the number and try again." };
   }
 
   // Link to the most recent not-accepted attempt so every retry is traceable.
   const previous = (await getPaymentsForOrder(order.id)).find((p) =>
     NOT_ACCEPTED.includes(p.status),
   );
+  const { upiId } = repaymentUpi(order, await getSettings());
 
   let payment;
   try {
     payment = await createPayment({
       orderId: order.id,
       customerId: customer.id,
-      amount,
+      productName: order.productName,
+      amount: order.amountDue,
       amountDueAtSubmission: order.amountDue,
-      upiId: order.upiId,
+      upiId,
       utr,
-      payApp,
-      paymentDate: new Date(`${paymentDay}T12:00:00+05:30`).toISOString(),
+      paymentDate: new Date().toISOString(),
       proofImage,
       proofMime,
       proofFilename,
@@ -359,18 +330,19 @@ export async function submitRepaymentAction(
     customerId: customer.id,
     orderId: order.id,
     paymentId: payment.id,
-    details: `${inr(amount)} via ${payApp} · UTR ${utr}${previous ? ` · follows ${previous.id}` : ""}`,
+    details: `${order.productName} · ${inr(payment.amount)} via UPI · UTR ${utr}${previous ? ` · follows ${previous.id}` : ""}`,
   });
   await createNotification({
     customerId: customer.id,
     kind: "payment_submitted",
     title: "Payment submitted",
-    message: `We received your payment of ${inr(amount)} (UTR ${utr}). It will be verified shortly.`,
+    message: `We received your ${order.productName} payment of ${inr(payment.amount)} (UTR ${utr}). It will be verified shortly.`,
     paymentId: payment.id,
     orderId: order.id,
   });
 
   revalidatePath(`/repay/${order.id}`);
   revalidatePath("/orders");
+  revalidatePath("/home");
   redirect(`/repay/${order.id}?submitted=1`);
 }

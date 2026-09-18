@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Order, PaymentStatus } from "@/lib/types";
 import { PaymentStatusPill } from "./CustomerPayments";
 import { inr, shortDate } from "@/lib/format";
+import { isOverdue } from "@/lib/loan";
 
 const TABS = [
   { key: "all", label: "All" },
@@ -63,7 +64,7 @@ export default function OrderTabs({
       ) : (
         <div className="mloan-order-list">
           {visible.map((o) => {
-            const meta = stateMeta(o.status);
+            const meta = stateMeta(isOverdue(o) && o.status === "due" ? "overdue" : o.status);
             return (
               <div className="mloan-order-card" key={o.id}>
                 <div className="mloan-order-head">
@@ -78,7 +79,7 @@ export default function OrderTabs({
                     <dd>{o.id}</dd>
                   </div>
                   <div>
-                    <dt>Borrowed</dt>
+                    <dt>Loan amount</dt>
                     <dd>{inr(o.principal)}</dd>
                   </div>
                   <div>

@@ -134,3 +134,11 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
 export function auditLabel(action: string): string {
   return AUDIT_ACTION_LABEL[action] ?? action.replace(/_/g, " ");
 }
+
+const PAY_APP_LABEL: Record<string, string> = { phonepe: "PhonePe", paytm: "Paytm", gpay: "GPay" };
+
+// "UPI", or "UPI · PhonePe" for older submissions that recorded the app.
+export function paymentMethodLabel(p: { paymentMethod?: string; payApp?: string }): string {
+  const app = p.payApp ? PAY_APP_LABEL[p.payApp] ?? p.payApp : "";
+  return app ? `${p.paymentMethod ?? "UPI"} · ${app}` : p.paymentMethod ?? "UPI";
+}

@@ -3,14 +3,18 @@
 import { useActionState } from "react";
 import { createLoanAction } from "@/app/admin/actions";
 import type { FormState } from "@/lib/form";
-import type { Customer, Product } from "@/lib/types";
+import type { Customer } from "@/lib/types";
 
 export default function NewLoanForm({
   customers,
-  products,
+  defaultCustomerId,
+  defaultUpiId,
+  today,
 }: {
   customers: Pick<Customer, "id" | "name" | "mobile">[];
-  products: Pick<Product, "id" | "name" | "rateMonthly" | "tenureMonths">[];
+  defaultCustomerId?: string;
+  defaultUpiId: string;
+  today: string;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     createLoanAction,
@@ -19,11 +23,15 @@ export default function NewLoanForm({
 
   return (
     <form action={formAction}>
-      {state.error ? <div className="adm-error">{state.error}</div> : null}
+      {state.error ? (
+        <div className="adm-error adm-error-inset" role="alert">
+          {state.error}
+        </div>
+      ) : null}
       <div className="adm-form-grid">
         <label className="adm-field">
           Customer
-          <select name="customerId" defaultValue="" required>
+          <select name="customerId" defaultValue={defaultCustomerId ?? ""} required>
             <option value="" disabled>
               Select a customer…
             </option>
@@ -35,33 +43,48 @@ export default function NewLoanForm({
           </select>
         </label>
         <label className="adm-field">
-          Product
-          <select name="productId" defaultValue="" required>
-            <option value="" disabled>
-              Select a product…
-            </option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.rateMonthly}%/mo)
-              </option>
-            ))}
-          </select>
+          Product name
+          <input
+            name="productName"
+            placeholder="e.g. Quick Rupee"
+            required
+            minLength={2}
+            maxLength={60}
+            autoComplete="off"
+          />
         </label>
         <label className="adm-field">
           Loan amount (₹)
-          <input type="number" name="amount" min={1} step={500} required />
+          <input
+            type="number"
+            name="amount"
+            inputMode="numeric"
+            min={1}
+            step={1}
+            placeholder="e.g. 500"
+            required
+          />
         </label>
         <label className="adm-field">
-          Tenure (months)
-          <input type="number" name="tenureMonths" min={1} max={60} required />
+          Due date
+          <input type="date" name="dueDate" min={today} required />
+        </label>
+        <label className="adm-field">
+          UPI ID for repayment (optional)
+          <input
+            name="upiId"
+            placeholder={defaultUpiId || "name@bank"}
+            maxLength={120}
+            autoComplete="off"
+          />
+          <small className="adm-field-hint">
+            Leave blank to use the collection UPI from Settings
+            {defaultUpiId ? ` (${defaultUpiId})` : ""}.
+          </small>
         </label>
       </div>
       <div className="adm-form-foot">
-        <button
-          type="submit"
-          className="adm-btn adm-btn-primary"
-          disabled={pending}
-        >
+        <button type="submit" className="adm-btn adm-btn-primary" disabled={pending}>
           {pending ? "Creating…" : "Create loan"}
         </button>
       </div>

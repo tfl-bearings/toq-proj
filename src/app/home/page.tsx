@@ -10,7 +10,8 @@ import {
   getSettings,
   listPaymentsForCustomer,
 } from "@/lib/db";
-import { inr } from "@/lib/format";
+import { inr, shortDate } from "@/lib/format";
+import { isOverdue } from "@/lib/loan";
 
 export default async function HomePage({
   searchParams,
@@ -30,7 +31,11 @@ export default async function HomePage({
     countUnreadNotifications(customer.id),
     getSettings(),
   ]);
-  const due = orders.find((o) => o.status === "due" || o.status === "overdue");
+  // Everything not yet repaid, soonest due first.
+  const pending = orders
+    .filter((o) => o.status !== "paid")
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const due = pending.find((o) => o.status === "due" || o.status === "overdue");
   const latestPayment = payments[0];
   const last4 = customer.mobile.slice(-4);
 
@@ -57,6 +62,40 @@ export default async function HomePage({
           <span>%</span>
           <div className="mloan-person">🧑‍💼</div>
         </div>
+      </section>
+
+      <section className="mloan-dues">
+        <div className="mloan-section-heading simple">
+          <h2>Pending Loans / Dues</h2>
+          {orders.length > pending.length ? <Link href="/orders">All loans</Link> : null}
+        </div>
+        {pending.length === 0 ? (
+          <div className="mloan-dues-empty">You have no pending dues. 🎉</div>
+        ) : (
+          <ul>
+            {pending.map((o) => (
+              <li key={o.id} className="mloan-due-card">
+                <div className="mloan-due-card-main">
+                  <b>{o.productName}</b>
+                  <strong>{inr(o.amountDue)}</strong>
+                  <span>
+                    Due Date: {shortDate(o.dueDate)}
+                    {isOverdue(o) ? <em className="mloan-overdue-tag">Overdue</em> : null}
+                  </span>
+                </div>
+                {o.status === "review" ? (
+                  <Link className="mloan-due-card-status" href={`/repay/${o.id}`}>
+                    Payment pending
+                  </Link>
+                ) : (
+                  <Link className="mloan-btn mloan-btn-primary" href={`/repay/${o.id}`}>
+                    Repay
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {latestPayment ? (

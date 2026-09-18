@@ -31,7 +31,13 @@ function readableOn(hex: string): string {
   return L > 0.5 ? "#0b2a3d" : "#ffffff";
 }
 
-export default function SettingsForm({ settings }: { settings: Settings }) {
+export default function SettingsForm({
+  settings,
+  qrImageUrl,
+}: {
+  settings: Settings;
+  qrImageUrl: string | null;
+}) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     updateSettingsAction,
     {},
@@ -41,8 +47,8 @@ export default function SettingsForm({ settings }: { settings: Settings }) {
 
   return (
     <form action={formAction}>
-      {state.error ? <div className="adm-error">{state.error}</div> : null}
-      {state.ok ? <div className="adm-ok">Settings saved.</div> : null}
+      {state.error ? <div className="adm-error adm-error-inset">{state.error}</div> : null}
+      {state.ok ? <div className="adm-ok adm-error-inset">Settings saved.</div> : null}
 
       <div className="adm-form-grid">
         <label className="adm-field">
@@ -51,11 +57,17 @@ export default function SettingsForm({ settings }: { settings: Settings }) {
         </label>
         <label className="adm-field">
           Collection UPI ID
-          <input name="upiId" defaultValue={settings.upiId} />
+          <input
+            name="upiId"
+            defaultValue={settings.upiId}
+            placeholder="name@bank"
+            required
+            autoComplete="off"
+          />
         </label>
         <label className="adm-field">
           Payee name (on UPI)
-          <input name="payeeName" defaultValue={settings.payeeName} />
+          <input name="payeeName" defaultValue={settings.payeeName} required />
         </label>
         <label className="adm-field">
           Support email
@@ -69,6 +81,33 @@ export default function SettingsForm({ settings }: { settings: Settings }) {
           Support phone
           <input name="supportPhone" defaultValue={settings.supportPhone} />
         </label>
+      </div>
+
+      <div className="adm-upi-qr">
+        <div className="adm-field">UPI QR code shown to customers</div>
+        <div className="adm-upi-qr-row">
+          {qrImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={qrImageUrl} alt="Uploaded UPI QR code" className="adm-upi-qr-preview" />
+          ) : (
+            <div className="adm-upi-qr-empty">
+              Generated automatically from the UPI ID, with the amount due filled in.
+            </div>
+          )}
+          <div className="adm-upi-qr-controls">
+            <label className="adm-field">
+              {qrImageUrl ? "Replace QR image" : "Upload your bank's UPI QR (optional)"}
+              <input type="file" name="upiQrImage" accept="image/png,image/jpeg,image/webp" />
+            </label>
+            {qrImageUrl ? (
+              <label className="adm-check">
+                <input type="checkbox" name="removeUpiQr" value="1" /> Remove uploaded QR and use
+                the generated one
+              </label>
+            ) : null}
+            <small>JPG, PNG or WebP, up to 1MB. It should encode the UPI ID above.</small>
+          </div>
+        </div>
       </div>
 
       <div className="adm-theme">

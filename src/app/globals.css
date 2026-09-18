@@ -503,3 +503,40 @@ html,body,.mloan-app-shell{touch-action:manipulation;-webkit-text-size-adjust:10
 .mloan-bell{grid-column:3;position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;font-size:18px;text-decoration:none}
 .mloan-bell span{position:absolute;top:-2px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#e5484d;color:#fff;font-size:10px;font-weight:800;line-height:17px;text-align:center}
 .mloan-link-button{display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:14px}
+
+
+/* toq-app: loan dues, repayment screen (UPI ID + QR + UTR) */
+.mloan-dues{padding:16px 16px 4px}
+.mloan-dues ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.mloan-dues .mloan-section-heading a{font-size:12px;color:var(--mloan-primary);text-decoration:none;font-weight:700}
+.mloan-dues-empty{border:1px dashed var(--mloan-line);border-radius:12px;padding:14px;text-align:center;color:var(--mloan-muted);font-size:13px;background:#fafbfc}
+.mloan-due-card{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--mloan-line);border-radius:12px;padding:13px 14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.035)}
+.mloan-due-card-main{display:grid;gap:2px;min-width:0}
+.mloan-due-card-main b{font-size:14px;overflow-wrap:anywhere}
+.mloan-due-card-main strong{font-size:19px;line-height:1.2}
+.mloan-due-card-main span{font-size:12px;color:var(--mloan-muted)}
+.mloan-due-card .mloan-btn{flex:0 0 auto;padding:9px 20px}
+.mloan-due-card-status{flex:0 0 auto;font-size:11px;font-weight:700;color:#0a6aa1;background:#eaf6fc;border-radius:999px;padding:6px 10px;text-decoration:none}
+.mloan-overdue-tag{display:inline-block;margin-left:6px;font-style:normal;font-size:10px;font-weight:700;color:#b42318;background:#fde8e8;border-radius:999px;padding:1px 7px;vertical-align:1px}
+.mloan-due-summary{border:1px solid var(--mloan-line);border-radius:14px;padding:14px;background:#fff;margin-bottom:14px}
+.mloan-due-summary h2{font-size:17px;margin:0 0 10px;overflow-wrap:anywhere}
+.mloan-due-summary dl{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
+.mloan-due-summary dt{font-size:11px;color:var(--mloan-muted);margin-bottom:2px}
+.mloan-due-summary dd{margin:0;font-size:14px;font-weight:700}
+.mloan-due-summary dd.mloan-due-amount{font-size:22px;line-height:1.15}
+.mloan-due-summary small{display:block;margin-top:10px;font-size:10px;color:#9aa2aa}
+.mloan-pay-method{border:1px solid var(--mloan-line);border-radius:14px;padding:14px;background:#fafcfd;margin-bottom:16px}
+.mloan-pay-method-title{font-size:13px;font-weight:700;margin-bottom:10px}
+.mloan-pay-method .mloan-order-upi{margin-top:0;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--mloan-line);border-radius:12px;padding:12px;max-width:none}
+.mloan-pay-method .mloan-order-upi small{display:block;font-size:10px;color:var(--mloan-muted);margin-bottom:2px}
+.mloan-copy-toast{flex-basis:100%;text-align:center;font-size:12px;font-weight:700;color:#17824f;min-height:0}
+.mloan-copy-toast:empty{display:none}
+.mloan-or-divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--mloan-muted);font-size:11px;font-weight:700}
+.mloan-or-divider::before,.mloan-or-divider::after{content:"";flex:1;border-top:1px solid var(--mloan-line)}
+.mloan-pay-method .mloan-payment-qr-card{box-shadow:none;text-align:center}
+.mloan-qr-hint{font-size:12px;color:#45525d;margin:8px 0 0}
+.mloan-utr-form{display:grid;gap:14px}
+.mloan-utr-form .mloan-proof-field input[name=utr]{font-size:17px;letter-spacing:1.5px;font-variant-numeric:tabular-nums}
+.mloan-utr-form .mloan-proof-field input[name=utr]:user-invalid{border-color:#e5484d}
+.mloan-utr-form .mloan-alert{margin:0}
+.mloan-utr-note{font-size:11px;color:var(--mloan-muted);text-align:center;margin:0}

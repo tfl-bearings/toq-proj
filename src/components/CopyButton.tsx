@@ -6,10 +6,13 @@ export default function CopyButton({
   value,
   className = "mloan-copy-btn",
   label = "Copy",
+  copiedMessage,
 }: {
   value: string;
   className?: string;
   label?: string;
+  // Optional confirmation shown next to the button, e.g. "UPI ID copied".
+  copiedMessage?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -29,9 +32,18 @@ export default function CopyButton({
     setTimeout(() => setCopied(false), 2000);
   }
 
-  return (
+  const button = (
     <button type="button" className={className} onClick={copy}>
       {copied ? "Copied" : label}
     </button>
+  );
+  if (!copiedMessage) return button;
+  return (
+    <>
+      {button}
+      <span className="mloan-copy-toast" role="status" aria-live="polite">
+        {copied ? `✓ ${copiedMessage}` : ""}
+      </span>
+    </>
   );
 }

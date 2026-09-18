@@ -20,7 +20,7 @@ import {
 } from "@/lib/db";
 import { dateTime, inr, shortDate } from "@/lib/format";
 import { inviteUrl } from "@/lib/links";
-import { auditLabel } from "@/lib/status";
+import { auditLabel, paymentMethodLabel } from "@/lib/status";
 import {
   deactivateCustomerAction,
   deleteCustomerAction,
@@ -29,7 +29,6 @@ import {
   updateCustomerAdminAction,
 } from "@/app/admin/actions";
 
-const PAY_APP: Record<string, string> = { phonepe: "PhonePe", paytm: "Paytm", gpay: "GPay" };
 
 export default async function CustomerDetailPage({
   params,
@@ -304,7 +303,7 @@ export default async function CustomerDetailPage({
                     </td>
                     <td className="adm-mono">{p.utr}</td>
                     <td>
-                      {p.paymentMethod ?? "UPI"} · {PAY_APP[p.payApp] ?? p.payApp}
+                      {paymentMethodLabel(p)}
                     </td>
                     <td>
                       <PaymentBadge status={p.status} />
@@ -337,10 +336,15 @@ export default async function CustomerDetailPage({
       </div>
 
       <div className="adm-section">
-        <h2>Loans ({orders.length})</h2>
+        <h2>
+          Loans ({orders.length})
+          {customer.status !== "inactive" ? (
+            <Link href={`/admin/loans/new?customerId=${customer.id}`}>+ New loan</Link>
+          ) : null}
+        </h2>
         {orders.length === 0 ? (
           <div className="adm-empty">
-            No loans yet. <Link href="/admin/loans/new" className="adm-link">Create a loan</Link>
+            No loans yet.
           </div>
         ) : (
           <div className="adm-table-wrap">
