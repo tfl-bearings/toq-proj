@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import AdminShell from "@/components/AdminShell";
 import { getCurrentAdmin } from "@/lib/session";
-import { getCustomerById, getProducts, listApplications } from "@/lib/db";
+import { getCustomersByIds, getProducts, listApplications } from "@/lib/db";
 import { inr, shortDate } from "@/lib/format";
 import {
   approveApplicationAction,
@@ -16,11 +16,7 @@ export default async function AdminApplicationsPage() {
   const pending = applications.filter((a) => a.status === "pending");
   const history = applications.filter((a) => a.status !== "pending");
   const products = await getProducts();
-  const customersById = new Map(
-    (await Promise.all(applications.map((a) => getCustomerById(a.customerId))))
-      .filter((customer): customer is NonNullable<typeof customer> => !!customer)
-      .map((customer) => [customer.id, customer]),
-  );
+  const customersById = await getCustomersByIds(applications.map((a) => a.customerId));
 
   return (
     <AdminShell

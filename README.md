@@ -12,9 +12,15 @@ npm install
 npm run dev      # http://localhost:3000
 ```
 
-Set `DATABASE_URL` to the Neon connection string and run `scripts/neon-schema.sql`
-before starting the app. Keep the connection string server-side; it is never
+Set `DATABASE_URL` to the Neon connection string. On its first request the app
+creates and migrates its tables itself (`migrate()` in `src/lib/db.ts`,
+versioned and idempotent); `scripts/neon-schema.sql` is optional for
+provisioning ahead of time. Keep the connection string server-side; it is never
 exposed to the browser.
+
+Optional: `APP_URL` (e.g. `https://pay.example.com`) fixes the host used in
+customer access links; otherwise the host of the operator's request is used.
+`ADMIN_COOKIE_SECRET` signs operator cookies (falls back to `DATABASE_URL`).
 
 Production build:
 
@@ -72,9 +78,13 @@ ADMIN_USERNAME=you ADMIN_PASSWORD='a-strong-password' npm start
 | `/admin` | Dashboard: customers, active loans, pending applications, pending reviews, outstanding |
 | `/admin/applications` | **Application review** — edit product/amount/tenure, then approve (creates the loan) or reject with a reason |
 | `/admin/loans/new` | **Create a loan** directly for any customer |
-| `/admin/payments` | **UTR review queue** — approve (closes loan) / reject (with reason); logs who + when |
+| `/admin/payments` | **Payment review** — status tabs (PENDING / APPROVED / REJECTED / REPAYMENT_REQUIRED / REFUND_PENDING / REFUNDED), search + filters + pagination; review cards with inline screenshot (zoom/rotate), approve (confirm + verified amount) / reject (reason + next step) |
+| `/admin/payments/[id]` | Full payment record, every attempt for the same loan, audit trail, refund actions |
 | `/admin/orders` | All loans and their status |
-| `/admin/customers` | All registered customers |
+| `/admin/customers` | Customers with search / filters / pagination, account + password status, last payment |
+| `/admin/customers/new` | **Create a customer** — issues a personal single-use access link |
+| `/admin/customers/[id]` | Profile, password & activation timestamps, access link (copy / WhatsApp / SMS / email / regenerate), edit, deactivate / reactivate / delete, payment history, loans, activity |
+| `/admin/activity` | Audit log of operator and customer actions, filterable |
 | `/admin/settings` | **App name + theme color** (preset swatches / picker), collection UPI/payee, support contact — all applied live |
 
 ### Dynamic branding
@@ -111,7 +121,30 @@ independently. Total repayable = `principal + principal × rateMonthly% ×
 tenureMonths` (single lump-sum repayment).
 
 Two roles (`owner` / `staff`). Approvals and rejections are recorded against the
-acting admin — a real audit trail, since this screen moves money.
+acting admin — a real audit trail, since this screen moves money. Only the owner
+can change settings (the collection UPI ID) or permanently delete a customer.
+
+### Customer & payment workflow
+
+```
+Admin creates customer ─► single-use access link (/invite/<token>, 7 days)
+        │
+Customer opens link ─► sets own password ─► account ACTIVE (link burned)
+        │
+Customer pays by UPI, submits UTR + amount + date + screenshot ─► PENDING
+        │
+Admin reviews (screenshot, UTR, amount)
+   ├─ Approve ─► APPROVED, loan balance reduced (paid when it reaches 0)
+   └─ Reject (reason) ─► REJECTED | REPAYMENT_REQUIRED | REFUND_PENDING
+                            │                         └─► mark REFUNDED (ref + date)
+                            └─► customer pays again ─► NEW payment record
+```
+
+Every attempt is its own record (never overwritten), linked to the attempt it
+retries. Review decisions are atomic conditional updates, so a double click or
+two operators can't approve twice; a UTR can back only one live payment, and a
+loan has at most one payment under review. Each step writes an audit entry and
+an in-app notification for the customer (bell on the home screen).
 
 ## Architecture
 
@@ -128,8 +161,9 @@ acting admin — a real audit trail, since this screen moves money.
   `useActionState`.
 - **Repayment**: `src/lib/upi.ts` builds a standard `upi://pay?...` deep link and
   renders it as a QR (`qrcode`). Submitting a UTR records the payment as
-  **`review`** — it is **never auto-approved**; a human verifies it against the
-  bank statement.
+  **`pending`** — it is **never auto-approved**; a human verifies it against the
+  bank statement. Screenshots (JPG/PNG/WebP, ≤ 4 MB, checked by file content)
+  are served only to signed-in operators via `/admin/payments/[id]/proof`.
 
 ## Design boundaries (why this is the "honest" version)
 
@@ -147,4 +181,3 @@ predatory instant-loan apps:
 > collected. Wire it to a licensed lender's systems and a real payment
 > reconciliation process before any production use.
 
-# toq-proj

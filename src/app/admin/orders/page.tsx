@@ -1,66 +1,77 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AdminShell from "@/components/AdminShell";
+import Flash from "@/components/admin/Flash";
 import { getCurrentAdmin } from "@/lib/session";
-import { getCustomerById, listAllOrders } from "@/lib/db";
+import { listAllOrders } from "@/lib/db";
 import { inr, shortDate } from "@/lib/format";
 
-export default async function AdminOrdersPage() {
+export default async function AdminOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string }>;
+}) {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
+  const { notice } = await searchParams;
   const orders = await listAllOrders();
-  const customersById = new Map(
-    (await Promise.all(orders.map((o) => getCustomerById(o.customerId))))
-      .filter((customer): customer is NonNullable<typeof customer> => !!customer)
-      .map((customer) => [customer.id, customer]),
-  );
 
   return (
     <AdminShell active="orders" adminName={admin.name} adminRole={admin.role}>
-      <Link href="/admin/loans/new" className="adm-newloan-link">
-        + New loan
-      </Link>
-      <h1>Loans</h1>
-      <p className="adm-lead">All loans and their repayment status.</p>
+      <Flash notice={notice} />
+      <div className="adm-page-head">
+        <div>
+          <h1>Loans</h1>
+          <p className="adm-lead">All loans and their repayment status.</p>
+        </div>
+        <Link href="/admin/loans/new" className="adm-btn adm-btn-primary">
+          + New loan
+        </Link>
+      </div>
 
       <div className="adm-section">
         <h2>{orders.length} loans</h2>
-        <div className="adm-table-wrap">
-          <table className="adm-table">
-            <thead>
-              <tr>
-                <th>Loan ID</th>
-                <th>Customer</th>
-                <th>Product</th>
-                <th>Borrowed</th>
-                <th>Due</th>
-                <th>Status</th>
-                <th>Due date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => {
-                const customer = customersById.get(o.customerId);
-                return (
+        {orders.length === 0 ? (
+          <div className="adm-empty">No loans yet.</div>
+        ) : (
+          <div className="adm-table-wrap">
+            <table className="adm-table">
+              <thead>
+                <tr>
+                  <th>Loan ID</th>
+                  <th>Customer</th>
+                  <th>Product</th>
+                  <th>Borrowed</th>
+                  <th>Paid</th>
+                  <th>Due</th>
+                  <th>Status</th>
+                  <th>Due date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((o) => (
                   <tr key={o.id}>
                     <td className="adm-mono">{o.id}</td>
-                    <td>{customer?.name ?? "—"}</td>
+                    <td>
+                      <Link href={`/admin/customers/${o.customerId}`} className="adm-link">
+                        {o.customerName ?? "—"}
+                      </Link>
+                    </td>
                     <td>{o.productName}</td>
                     <td>{inr(o.principal)}</td>
+                    <td>{o.amountPaid ? inr(o.amountPaid) : "—"}</td>
                     <td>{o.amountDue > 0 ? inr(o.amountDue) : "—"}</td>
                     <td>
-                      <span className={`adm-badge ${o.status}`}>
-                        {o.status}
-                      </span>
+                      <span className={`adm-badge ${o.status}`}>{o.status}</span>
                     </td>
                     <td>{shortDate(o.dueDate)}</td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </AdminShell>
   );

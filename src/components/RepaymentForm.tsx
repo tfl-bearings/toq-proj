@@ -10,7 +10,15 @@ const PAY_APPS = [
   { value: "gpay", label: "GPay", icon: "🟢" },
 ];
 
-export default function RepaymentForm({ orderId }: { orderId: string }) {
+export default function RepaymentForm({
+  orderId,
+  amountDue,
+  today,
+}: {
+  orderId: string;
+  amountDue: number;
+  today: string;
+}) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     submitRepaymentAction,
     {},
@@ -36,6 +44,26 @@ export default function RepaymentForm({ orderId }: { orderId: string }) {
 
       <div className="mloan-payment-proof">
         <label className="mloan-proof-field">
+          <span>Amount paid (₹)</span>
+          <input
+            type="number"
+            name="amount"
+            inputMode="numeric"
+            min={1}
+            max={amountDue}
+            step={1}
+            defaultValue={amountDue}
+            required
+          />
+          <small>Enter exactly what you paid. The full amount due is prefilled.</small>
+        </label>
+
+        <label className="mloan-proof-field">
+          <span>Payment date</span>
+          <input type="date" name="paymentDate" defaultValue={today} max={today} required />
+        </label>
+
+        <label className="mloan-proof-field">
           <span>UPI reference / UTR (12 digits)</span>
           <input
             type="text"
@@ -55,13 +83,15 @@ export default function RepaymentForm({ orderId }: { orderId: string }) {
 
         <label className="mloan-proof-field">
           <span>Payment screenshot / proof (optional)</span>
-          <input type="file" name="proofImage" accept="image/*" capture="environment" />
-          <small>Upload a screenshot from the payment app for quick admin review.</small>
+          <input type="file" name="proofImage" accept="image/png,image/jpeg,image/webp" />
+          <small>JPG, PNG or WebP up to 4MB. Helps us verify your payment faster.</small>
         </label>
       </div>
 
       {state.error ? (
-        <div className="mloan-alert mloan-alert-error">{state.error}</div>
+        <div className="mloan-alert mloan-alert-error" role="alert">
+          {state.error}
+        </div>
       ) : null}
 
       <button

@@ -8,11 +8,10 @@ export default async function AdminNewLoanPage() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
-  const customers = (await listCustomers()).map((c) => ({
-    id: c.id,
-    name: c.name,
-    mobile: c.mobile,
-  }));
+  // Deactivated customers can't be given new loans.
+  const customers = (await listCustomers())
+    .filter((c) => c.status !== "inactive")
+    .map((c) => ({ id: c.id, name: c.name, mobile: c.mobile }));
   const products = (await getProducts()).map((p) => ({
     id: p.id,
     name: p.name,

@@ -1,16 +1,23 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { newToken, verifyPassword } from "@/lib/auth";
 import {
+  approvePayment,
+  completeRefund,
   createAdminSession,
   createAuditLog,
   createCustomer,
+  createNotification,
   createOrder,
+  customerHasRecords,
+  decideApplication,
   deleteAdminSession,
+  deleteCustomerIfUnused,
+  deleteSessionsForCustomer,
+  DuplicateMobileError,
   getAdminByUsername,
   getApplication,
   getCustomerById,
@@ -18,10 +25,11 @@ import {
   getOrder,
   getPayment,
   getProduct,
+  initiateRefund,
+  rejectPayment,
+  rotateCustomerInvite,
   updateApplication,
   updateCustomer,
-  updateOrder,
-  updatePayment,
   updateSettings,
 } from "@/lib/db";
 import { addMonthsIso, totalRepayable } from "@/lib/loan";
@@ -31,12 +39,35 @@ import {
   getCurrentAdmin,
   setAdminSessionCookie,
 } from "@/lib/session";
+import { dateTime, inr } from "@/lib/format";
+import { REJECTION_OUTCOMES, REJECTION_REASONS } from "@/lib/status";
+import { field, validateCustomerFields } from "@/lib/validation";
 import type { FormState } from "@/lib/form";
+import type { Admin, Customer } from "@/lib/types";
 
-async function requireAdmin() {
+async function requireAdmin(): Promise<Admin> {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
   return admin;
+}
+
+// Only operator-console paths are accepted as a post-action destination.
+function returnTo(formData: FormData, fallback: string): string {
+  const target = field(formData, "returnTo");
+  return /^\/admin(\/|\?|$)/.test(target) && !target.startsWith("//")
+    ? target
+    : fallback;
+}
+
+function withNotice(path: string, notice: string): string {
+  const [base, search = ""] = path.split("?");
+  const params = new URLSearchParams(search);
+  params.set("notice", notice);
+  return `${base}?${params.toString()}`;
+}
+
+function revalidateAdmin() {
+  revalidatePath("/admin", "layout");
 }
 
 // --- Auth --------------------------------------------------------------------
@@ -45,7 +76,7 @@ export async function adminLoginAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const username = String(formData.get("username") ?? "").trim();
+  const username = field(formData, "username");
   const password = String(formData.get("password") ?? "");
 
   if (!username || !password) {
@@ -74,147 +105,470 @@ export async function adminLogoutAction(): Promise<void> {
   redirect("/admin/login");
 }
 
-// --- Payment review (the core operator task) --------------------------------
+// --- Customers ---------------------------------------------------------------
 
-export async function approvePaymentAction(formData: FormData): Promise<void> {
+// Accepts "98765 43210", "+91 98765-43210" etc.; stores the bare 10 digits.
+function normalizeMobile(raw: string): string {
+  const compact = raw.replace(/[\s-]/g, "");
+  const match = compact.match(/^(?:\+?91)?([0-9]{10})$/);
+  return match ? match[1] : compact;
+}
+
+function readCustomerFields(formData: FormData) {
+  return {
+    name: field(formData, "name"),
+    mobile: normalizeMobile(field(formData, "mobile")),
+    email: field(formData, "email").toLowerCase(),
+    upiId: field(formData, "upiId"),
+    paymentMethod: field(formData, "paymentMethod") || "UPI",
+  };
+}
+
+export async function createCustomerAdminAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const admin = await requireAdmin();
-  const paymentId = String(formData.get("paymentId") ?? "");
-  const payment = await getPayment(paymentId);
-  if (!payment || payment.status !== "review") redirect("/admin/payments");
-
-  await updatePayment(payment.id, {
-    status: "success",
-    reviewedBy: admin.id,
-    reviewedByName: admin.name,
-    reviewedAt: new Date().toISOString(),
-    reason: "Approved after manual verification",
-  });
-  const order = await getOrder(payment.orderId);
-  if (order) {
-    await updateOrder(payment.orderId, { status: "paid", amountDue: 0 });
+  const input = readCustomerFields(formData);
+  const invalid = validateCustomerFields(input);
+  if (invalid) return { error: invalid };
+  if (await getCustomerByMobile(input.mobile)) {
+    return { error: "A customer with this mobile number already exists." };
   }
-  await updateCustomer(payment.customerId, {
-    status: "active",
-    lastActivityAt: new Date().toISOString(),
-    activatedAt: new Date().toISOString(),
-  });
+
+  let customer: Customer;
+  try {
+    customer = await createCustomer({ ...input, createdBy: admin.id });
+  } catch (error) {
+    if (error instanceof DuplicateMobileError) return { error: error.message };
+    throw error;
+  }
+
   await createAuditLog({
-    action: "payment_approved",
+    action: "customer_created",
     userType: "admin",
     userId: admin.id,
     userName: admin.name,
-    customerId: payment.customerId,
-    paymentId: payment.id,
-    orderId: payment.orderId,
-    details: `Approved payment ${payment.id} for ${payment.amount}`,
+    customerId: customer.id,
+    details: `Created ${customer.name} (${customer.customerCode}, +91 ${customer.mobile})`,
+  });
+  await createAuditLog({
+    action: "application_link_generated",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: customer.id,
+    details: `Access link issued, valid until ${dateTime(customer.inviteExpiresAt)}`,
+  });
+  await createNotification({
+    customerId: customer.id,
+    kind: "account_created",
+    title: "Your account was created",
+    message: "Welcome! Your account has been set up. You can now repay your loans securely.",
   });
 
-  revalidatePath("/admin/payments");
-  revalidatePath("/admin");
-  redirect("/admin/payments");
+  revalidateAdmin();
+  redirect(`/admin/customers/${customer.id}?notice=created`);
 }
 
-export async function updateCustomerAdminAction(formData: FormData): Promise<void> {
+export async function updateCustomerAdminAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const admin = await requireAdmin();
-  const customerId = String(formData.get("customerId") ?? "");
+  const customerId = field(formData, "customerId");
   const customer = await getCustomerById(customerId);
-  if (!customer) redirect("/admin/customers");
+  if (!customer) return { error: "Customer not found." };
 
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
-  const mobile = String(formData.get("mobile") ?? "").trim();
-  const upiId = String(formData.get("upiId") ?? "").trim();
-  const paymentMethod = String(formData.get("paymentMethod") ?? "UPI").trim();
-  const status = String(formData.get("status") ?? customer.status ?? "pending").trim();
+  const input = readCustomerFields(formData);
+  const invalid = validateCustomerFields(input);
+  if (invalid) return { error: invalid };
+  const owner = await getCustomerByMobile(input.mobile);
+  if (owner && owner.id !== customer.id) {
+    return { error: "Another customer already uses this mobile number." };
+  }
 
-  if (!name || !/^\d{10}$/.test(mobile)) redirect(`/admin/customers/${customerId}`);
+  const changed = (Object.keys(input) as (keyof typeof input)[]).filter(
+    (key) => (customer[key] ?? "") !== input[key],
+  );
+  if (changed.length === 0) {
+    return { error: "Nothing changed." };
+  }
 
-  await updateCustomer(customerId, {
-    name,
-    mobile,
-    email,
-    upiId,
-    paymentMethod,
-    status: status as typeof customer.status,
-    lastActivityAt: new Date().toISOString(),
-  });
+  try {
+    await updateCustomer(customerId, input);
+  } catch (error) {
+    if (error instanceof DuplicateMobileError) {
+      return { error: "Another customer already uses this mobile number." };
+    }
+    throw error;
+  }
   await createAuditLog({
     action: "customer_edited",
     userType: "admin",
     userId: admin.id,
     userName: admin.name,
     customerId,
-    details: `Updated details for ${name}`,
+    details: changed
+      .map((key) => `${key}: “${customer[key] ?? ""}” → “${input[key]}”`)
+      .join("; "),
   });
 
-  revalidatePath("/admin/customers");
-  redirect(`/admin/customers/${customerId}`);
+  revalidateAdmin();
+  redirect(`/admin/customers/${customerId}?notice=saved`);
 }
 
-export async function deactivateCustomerAction(formData: FormData): Promise<void> {
+export async function deactivateCustomerAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const admin = await requireAdmin();
-  const customerId = String(formData.get("customerId") ?? "");
+  const customerId = field(formData, "customerId");
+  const reason = field(formData, "reason").slice(0, 300);
   const customer = await getCustomerById(customerId);
-  if (!customer) redirect("/admin/customers");
+  if (!customer) return { error: "Customer not found." };
+  if (customer.status === "inactive") return { error: "Customer is already deactivated." };
 
   await updateCustomer(customerId, {
     status: "inactive",
     deactivatedAt: new Date().toISOString(),
-    lastActivityAt: new Date().toISOString(),
   });
+  // Sign the customer out everywhere.
+  await deleteSessionsForCustomer(customerId);
   await createAuditLog({
     action: "customer_deactivated",
     userType: "admin",
     userId: admin.id,
     userName: admin.name,
     customerId,
-    details: `Deactivated customer ${customer.name}`,
+    reason: reason || undefined,
+    details: `Deactivated ${customer.name}; active sessions revoked`,
   });
 
-  revalidatePath("/admin/customers");
-  redirect("/admin/customers");
+  revalidateAdmin();
+  redirect(`/admin/customers/${customerId}?notice=deactivated`);
 }
 
-export async function rejectPaymentAction(formData: FormData): Promise<void> {
+export async function reactivateCustomerAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const admin = await requireAdmin();
-  const paymentId = String(formData.get("paymentId") ?? "");
-  const choice = String(formData.get("rejectReason") ?? "Other").trim();
-  const custom = String(formData.get("customReason") ?? "").trim();
-  const reason = [choice, custom].filter(Boolean).join(" — ") || "Payment rejected after review.";
-  const payment = await getPayment(paymentId);
-  if (!payment || payment.status !== "review") redirect("/admin/payments");
+  const customerId = field(formData, "customerId");
+  const customer = await getCustomerById(customerId);
+  if (!customer) return { error: "Customer not found." };
+  if (customer.status !== "inactive") return { error: "Customer is not deactivated." };
 
-  await updatePayment(payment.id, {
-    status: "failed",
-    reviewedBy: admin.id,
-    reviewedByName: admin.name,
-    reviewedAt: new Date().toISOString(),
-    reason,
+  const status = customer.passwordSetAt ? "active" : "pending";
+  await updateCustomer(customerId, { status }, ["deactivatedAt"]);
+  await createAuditLog({
+    action: "customer_reactivated",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId,
+    details: `Reactivated ${customer.name} as ${status}`,
   });
-  const order = await getOrder(payment.orderId);
-  if (order) {
-    const overdue = new Date(order.dueDate).getTime() < Date.now();
-    await updateOrder(order.id, { status: overdue ? "overdue" : "due" });
+
+  revalidateAdmin();
+  redirect(`/admin/customers/${customerId}?notice=reactivated`);
+}
+
+export async function deleteCustomerAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  if (admin.role !== "owner") {
+    return { error: "Only the owner can permanently delete customers." };
   }
-  await updateCustomer(payment.customerId, {
-    status: "active",
-    lastActivityAt: new Date().toISOString(),
+  const customerId = field(formData, "customerId");
+  const customer = await getCustomerById(customerId);
+  if (!customer) return { error: "Customer not found." };
+  if (await customerHasRecords(customerId)) {
+    return {
+      error:
+        "This customer has loans, applications or payments, so their history must be kept. Deactivate them instead.",
+    };
+  }
+  if (!(await deleteCustomerIfUnused(customerId))) {
+    return { error: "The customer now has records and can't be deleted. Deactivate instead." };
+  }
+  await createAuditLog({
+    action: "customer_deleted",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId,
+    details: `Deleted ${customer.name} (${customer.customerCode ?? customer.id}, +91 ${customer.mobile})`,
   });
+
+  revalidateAdmin();
+  redirect("/admin/customers?notice=deleted");
+}
+
+export async function generateCustomerInviteAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const customerId = field(formData, "customerId");
+  const customer = await getCustomerById(customerId);
+  if (!customer) return { error: "Customer not found." };
+  if (customer.status === "inactive") {
+    return { error: "Reactivate the customer before issuing an access link." };
+  }
+
+  const updated = await rotateCustomerInvite(customerId);
+  await createAuditLog({
+    action: "application_link_generated",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId,
+    details: `${customer.inviteToken ? "Replaced previous access link" : customer.passwordSetAt ? "Password reset link issued" : "Access link issued"}, valid until ${dateTime(updated?.inviteExpiresAt)}`,
+  });
+
+  revalidateAdmin();
+  redirect(`/admin/customers/${customerId}?notice=link`);
+}
+
+// --- Payment review (the core operator task) --------------------------------
+
+export async function approvePaymentAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const paymentId = field(formData, "paymentId");
+  const note = field(formData, "note").slice(0, 300);
+  const payment = await getPayment(paymentId);
+  if (!payment) return { error: "Payment not found." };
+  if (payment.status !== "pending") {
+    return { error: `Already reviewed (${payment.status}) by ${payment.reviewedByName ?? "another operator"}.` };
+  }
+
+  const order = await getOrder(payment.orderId);
+  const maxAmount = Math.max(payment.amount, order?.amountDue ?? 0);
+  const rawAmount = field(formData, "approvedAmount");
+  const approvedAmount = rawAmount ? Number(rawAmount) : payment.amount;
+  if (!Number.isInteger(approvedAmount) || approvedAmount < 1 || approvedAmount > maxAmount) {
+    return { error: `Verified amount must be a whole number between ₹1 and ${inr(maxAmount)}.` };
+  }
+
+  const approved = await approvePayment({
+    paymentId,
+    reviewer: admin,
+    approvedAmount,
+    note: note || undefined,
+  });
+  if (!approved) {
+    return { error: "This payment was reviewed by someone else a moment ago. Refresh to see it." };
+  }
+  const updatedOrder = await getOrder(payment.orderId);
+  const closed = updatedOrder?.status === "paid";
+
+  await createAuditLog({
+    action: "payment_approved",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: payment.customerId,
+    paymentId,
+    orderId: payment.orderId,
+    details: `Approved ${inr(approvedAmount)}${approvedAmount !== payment.amount ? ` (submitted ${inr(payment.amount)})` : ""} · UTR ${payment.utr}${closed ? " · loan closed" : ` · ${inr(updatedOrder?.amountDue ?? 0)} still due`}`,
+  });
+  await createNotification({
+    customerId: payment.customerId,
+    kind: "payment_approved",
+    title: "Payment successful",
+    message: closed
+      ? `Your payment of ${inr(approvedAmount)} is confirmed and your ${payment.productName ?? "loan"} is fully repaid.`
+      : `Your payment of ${inr(approvedAmount)} is confirmed. ${inr(updatedOrder?.amountDue ?? 0)} remains due.`,
+    paymentId,
+    orderId: payment.orderId,
+  });
+
+  revalidateAdmin();
+  redirect(withNotice(returnTo(formData, "/admin/payments"), "approved"));
+}
+
+export async function rejectPaymentAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const paymentId = field(formData, "paymentId");
+  const choice = field(formData, "rejectReason");
+  const custom = field(formData, "customReason").slice(0, 300);
+  const outcome = field(formData, "outcome");
+
+  if (!(REJECTION_REASONS as readonly string[]).includes(choice)) {
+    return { error: "Choose a rejection reason." };
+  }
+  if (choice === "Other" && custom.length < 3) {
+    return { error: "Describe the reason when choosing “Other”." };
+  }
+  const outcomeOption = REJECTION_OUTCOMES.find((o) => o.value === outcome);
+  if (!outcomeOption) return { error: "Choose what happens next." };
+
+  const payment = await getPayment(paymentId);
+  if (!payment) return { error: "Payment not found." };
+  if (payment.status !== "pending") {
+    return { error: `Already reviewed (${payment.status}) by ${payment.reviewedByName ?? "another operator"}.` };
+  }
+
+  const reason = choice === "Other" ? custom : choice;
+  const rejected = await rejectPayment({
+    paymentId,
+    reviewer: admin,
+    outcome: outcomeOption.value,
+    reason,
+    note: choice === "Other" ? undefined : custom || undefined,
+  });
+  if (!rejected) {
+    return { error: "This payment was reviewed by someone else a moment ago. Refresh to see it." };
+  }
+
   await createAuditLog({
     action: "payment_rejected",
     userType: "admin",
     userId: admin.id,
     userName: admin.name,
     customerId: payment.customerId,
-    paymentId: payment.id,
+    paymentId,
     orderId: payment.orderId,
     reason,
-    details: `Rejected payment ${payment.id}`,
+    details: `Rejected ${inr(payment.amount)} · UTR ${payment.utr} · next step: ${outcomeOption.label}${custom && choice !== "Other" ? ` · note: ${custom}` : ""}`,
+  });
+  if (outcomeOption.value === "refund_pending") {
+    await createAuditLog({
+      action: "refund_initiated",
+      userType: "admin",
+      userId: admin.id,
+      userName: admin.name,
+      customerId: payment.customerId,
+      paymentId,
+      orderId: payment.orderId,
+      details: `Refund of ${inr(payment.amount)} initiated at rejection`,
+    });
+  }
+
+  const explanation = custom && choice !== "Other" ? ` ${custom}` : "";
+  const message = {
+    rejected: `Your payment of ${inr(payment.amount)} (UTR ${payment.utr}) was not accepted: ${reason}.${explanation}`,
+    repayment_required: `Your payment of ${inr(payment.amount)} (UTR ${payment.utr}) was not accepted: ${reason}.${explanation} Please make a new payment from My Loans.`,
+    refund_pending: `Your payment of ${inr(payment.amount)} (UTR ${payment.utr}) was not accepted: ${reason}.${explanation} The amount will be refunded to you.`,
+  }[outcomeOption.value];
+  await createNotification({
+    customerId: payment.customerId,
+    kind:
+      outcomeOption.value === "rejected"
+        ? "payment_rejected"
+        : outcomeOption.value,
+    title:
+      outcomeOption.value === "repayment_required"
+        ? "Repayment required"
+        : outcomeOption.value === "refund_pending"
+          ? "Payment rejected — refund pending"
+          : "Payment rejected",
+    message,
+    paymentId,
+    orderId: payment.orderId,
   });
 
-  revalidatePath("/admin/payments");
-  revalidatePath("/admin");
-  redirect("/admin/payments");
+  revalidateAdmin();
+  redirect(withNotice(returnTo(formData, "/admin/payments"), "rejected"));
+}
+
+export async function initiateRefundAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const paymentId = field(formData, "paymentId");
+  const note = field(formData, "note").slice(0, 300);
+  const payment = await getPayment(paymentId);
+  if (!payment) return { error: "Payment not found." };
+
+  const updated = await initiateRefund({ paymentId, reviewer: admin, note: note || undefined });
+  if (!updated) {
+    return { error: "A refund can only be started for a rejected payment." };
+  }
+  await createAuditLog({
+    action: "refund_initiated",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: payment.customerId,
+    paymentId,
+    orderId: payment.orderId,
+    details: `Refund of ${inr(payment.amount)} initiated${note ? ` · ${note}` : ""}`,
+  });
+  await createNotification({
+    customerId: payment.customerId,
+    kind: "refund_pending",
+    title: "Refund initiated",
+    message: `A refund of ${inr(payment.amount)} for UTR ${payment.utr} has been initiated.`,
+    paymentId,
+    orderId: payment.orderId,
+  });
+
+  revalidateAdmin();
+  redirect(withNotice(returnTo(formData, "/admin/payments"), "refund_started"));
+}
+
+export async function completeRefundAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const paymentId = field(formData, "paymentId");
+  const reference = field(formData, "refundReference");
+  const refundDate = field(formData, "refundDate");
+  const note = field(formData, "note").slice(0, 300);
+
+  if (!/^[A-Za-z0-9-]{6,40}$/.test(reference)) {
+    return { error: "Enter the refund UTR / reference (6–40 letters or digits)." };
+  }
+  const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(refundDate) || refundDate > today) {
+    return { error: "Enter the date the refund was sent (not in the future)." };
+  }
+  const payment = await getPayment(paymentId);
+  if (!payment) return { error: "Payment not found." };
+
+  const updated = await completeRefund({
+    paymentId,
+    reviewer: admin,
+    reference,
+    refundedAt: new Date(`${refundDate}T12:00:00+05:30`).toISOString(),
+    note: note || undefined,
+  });
+  if (!updated) {
+    return { error: "Only a payment with a pending refund can be marked refunded." };
+  }
+  await createAuditLog({
+    action: "refund_completed",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: payment.customerId,
+    paymentId,
+    orderId: payment.orderId,
+    details: `Refunded ${inr(payment.amount)} · refund ref ${reference} · sent ${refundDate}${note ? ` · ${note}` : ""}`,
+  });
+  await createNotification({
+    customerId: payment.customerId,
+    kind: "refunded",
+    title: "Refund sent",
+    message: `${inr(payment.amount)} has been refunded to you (refund reference ${reference}).`,
+    paymentId,
+    orderId: payment.orderId,
+  });
+
+  revalidateAdmin();
+  redirect(withNotice(returnTo(formData, "/admin/payments"), "refunded"));
 }
 
 // --- Loan origination --------------------------------------------------------
@@ -224,7 +578,7 @@ export async function createLoanAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const customerId = String(formData.get("customerId") ?? "");
   const productId = String(formData.get("productId") ?? "");
   const principal = Number(formData.get("amount"));
@@ -232,6 +586,9 @@ export async function createLoanAction(
 
   const customer = await getCustomerById(customerId);
   if (!customer) return { error: "Select a customer." };
+  if (customer.status === "inactive") {
+    return { error: "This customer is deactivated. Reactivate them first." };
+  }
   const product = await getProduct(productId);
   if (!product) return { error: "Select a loan product." };
   if (!Number.isFinite(principal) || principal <= 0) {
@@ -242,7 +599,7 @@ export async function createLoanAction(
   }
 
   const amountDue = totalRepayable(principal, product.rateMonthly, tenureMonths);
-  await createOrder({
+  const order = await createOrder({
     customerId: customer.id,
     productId: product.id,
     productName: product.name,
@@ -252,10 +609,25 @@ export async function createLoanAction(
     rateMonthly: product.rateMonthly,
     dueDate: addMonthsIso(Math.round(tenureMonths)),
   });
+  await createAuditLog({
+    action: "loan_created",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: customer.id,
+    orderId: order.id,
+    details: `${product.name} · ${inr(order.principal)} for ${order.tenureMonths} months · ${inr(amountDue)} repayable`,
+  });
+  await createNotification({
+    customerId: customer.id,
+    kind: "loan_created",
+    title: "New loan added",
+    message: `${product.name} of ${inr(order.principal)} was added to your account. ${inr(amountDue)} is repayable.`,
+    orderId: order.id,
+  });
 
-  revalidatePath("/admin/orders");
-  revalidatePath("/admin");
-  redirect("/admin/orders");
+  revalidateAdmin();
+  redirect("/admin/orders?notice=loan_created");
 }
 
 // Approve an application (possibly with edited product/amount/tenure) -> loan.
@@ -285,6 +657,19 @@ export async function approveApplicationAction(
   const product = (await getProduct(productId)) ?? (await getProduct(application.productId));
   if (!product) redirect("/admin/applications");
 
+  // Claim the decision first so a double submit can't create two loans.
+  const claimed = await decideApplication(application.id, {
+    status: "approved",
+    productId: product.id,
+    productName: product.name,
+    amount: principal,
+    tenureMonths,
+    reviewedBy: admin.id,
+    reviewedByName: admin.name,
+    reviewedAt: new Date().toISOString(),
+  });
+  if (!claimed) redirect("/admin/applications");
+
   const amountDue = totalRepayable(principal, product.rateMonthly, tenureMonths);
   const order = await createOrder({
     customerId: application.customerId,
@@ -297,22 +682,26 @@ export async function approveApplicationAction(
     dueDate: addMonthsIso(tenureMonths),
     applicationId: application.id,
   });
+  await updateApplication(application.id, { orderId: order.id });
 
-  await updateApplication(application.id, {
-    status: "approved",
-    productId: product.id,
-    productName: product.name,
-    amount: principal,
-    tenureMonths,
+  await createAuditLog({
+    action: "loan_application_approved",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: application.customerId,
     orderId: order.id,
-    reviewedBy: admin.id,
-    reviewedByName: admin.name,
-    reviewedAt: new Date().toISOString(),
+    details: `${application.id} → ${order.id} · ${product.name} · ${inr(principal)} for ${tenureMonths} months`,
+  });
+  await createNotification({
+    customerId: application.customerId,
+    kind: "application_approved",
+    title: "Loan application approved",
+    message: `Your ${product.name} application for ${inr(principal)} was approved. ${inr(amountDue)} is repayable.`,
+    orderId: order.id,
   });
 
-  revalidatePath("/admin/applications");
-  revalidatePath("/admin/orders");
-  revalidatePath("/admin");
+  revalidateAdmin();
   redirect("/admin/applications");
 }
 
@@ -321,118 +710,55 @@ export async function rejectApplicationAction(
 ): Promise<void> {
   const admin = await requireAdmin();
   const applicationId = String(formData.get("applicationId") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
-  const application = await getApplication(applicationId);
-  if (!application || application.status !== "pending") {
-    redirect("/admin/applications");
-  }
-
-  await updateApplication(application.id, {
+  const reason =
+    String(formData.get("reason") ?? "").trim().slice(0, 300) ||
+    "Application did not meet our current criteria.";
+  const application = await decideApplication(applicationId, {
     status: "rejected",
-    reason: reason || "Application did not meet our current criteria.",
+    reason,
     reviewedBy: admin.id,
     reviewedByName: admin.name,
     reviewedAt: new Date().toISOString(),
   });
+  if (!application) redirect("/admin/applications");
 
-  revalidatePath("/admin/applications");
-  revalidatePath("/admin");
+  await createAuditLog({
+    action: "loan_application_rejected",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    customerId: application.customerId,
+    reason,
+    details: `${application.id} · ${application.productName} · ${inr(application.amount)}`,
+  });
+  await createNotification({
+    customerId: application.customerId,
+    kind: "application_rejected",
+    title: "Loan application not approved",
+    message: `Your ${application.productName} application was not approved: ${reason}`,
+  });
+
+  revalidateAdmin();
   redirect("/admin/applications");
 }
 
 // --- Settings ----------------------------------------------------------------
 
-export async function createCustomerAdminAction(
-  formData: FormData,
-): Promise<void> {
-  const admin = await requireAdmin();
-  const mobile = String(formData.get("mobile") ?? "").trim();
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
-  const paymentMethod = String(formData.get("paymentMethod") ?? "UPI").trim();
-  const upiId = String(formData.get("upiId") ?? "").trim();
-  const customer = await getCustomerByMobile(mobile);
-
-  if (!/^\d{10}$/.test(mobile)) {
-    redirect("/admin/customers?error=invalid-mobile");
-  }
-  if (!name || name.length < 2) {
-    redirect("/admin/customers?error=invalid-name");
-  }
-  if (customer) {
-    redirect("/admin/customers?error=duplicate-customer");
-  }
-
-  const generated = await createCustomer({
-    mobile,
-    name,
-    email,
-    paymentMethod,
-    upiId,
-    status: "pending",
-    password: "",
-    inviteLink: "",
-  });
-  const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login?invite=${encodeURIComponent(generated.inviteToken ?? generated.id)}`;
-  await updateCustomer(generated.id, {
-    inviteLink,
-    customerCode: `CUST-${generated.id.slice(-6).toUpperCase()}`,
-    lastActivityAt: new Date().toISOString(),
-  });
-  await createAuditLog({
-    action: "customer_created",
-    userType: "admin",
-    userId: admin.id,
-    userName: admin.name,
-    customerId: generated.id,
-    details: `Created customer ${generated.name} with access link`,
-  });
-
-  revalidatePath("/admin/customers");
-  redirect("/admin/customers");
-}
-
-export async function generateCustomerInviteAction(
-  formData: FormData,
-): Promise<void> {
-  const admin = await requireAdmin();
-  const customerId = String(formData.get("customerId") ?? "");
-  const customer = await getCustomerById(customerId);
-  if (!customer) redirect("/admin/customers");
-
-  const token = customer.inviteToken ?? randomUUID();
-  const link = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login?invite=${encodeURIComponent(token)}`;
-  await updateCustomer(customerId, {
-    inviteLink: link,
-    inviteToken: token,
-    status: customer.status ?? "pending",
-    lastActivityAt: new Date().toISOString(),
-  });
-
-  await createAuditLog({
-    action: "application_link_generated",
-    userType: "admin",
-    userId: admin.id,
-    userName: admin.name,
-    customerId,
-    details: `Generated customer invite link`,
-  });
-
-  revalidatePath("/admin/customers");
-  redirect(`/admin/customers/${customerId}`);
-}
-
 export async function updateSettingsAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireAdmin();
-  const appName = String(formData.get("appName") ?? "").trim();
-  const upiId = String(formData.get("upiId") ?? "").trim();
-  const payeeName = String(formData.get("payeeName") ?? "").trim();
-  const supportEmail = String(formData.get("supportEmail") ?? "").trim();
-  const supportPhone = String(formData.get("supportPhone") ?? "").trim();
-  const themeColorRaw = String(formData.get("themeColor") ?? "").trim();
+  const admin = await requireAdmin();
+  // The collection UPI ID decides where customer money goes: owner only.
+  if (admin.role !== "owner") {
+    return { error: "Only the owner can change settings." };
+  }
+  const appName = field(formData, "appName");
+  const upiId = field(formData, "upiId");
+  const payeeName = field(formData, "payeeName");
+  const supportEmail = field(formData, "supportEmail");
+  const supportPhone = field(formData, "supportPhone");
+  const themeColorRaw = field(formData, "themeColor");
 
   if (!appName) return { error: "App name can't be empty." };
   if (themeColorRaw && !/^#[0-9a-fA-F]{6}$/.test(themeColorRaw)) {
@@ -446,6 +772,13 @@ export async function updateSettingsAction(
     supportEmail,
     supportPhone,
     ...(themeColorRaw ? { themeColor: themeColorRaw } : {}),
+  });
+  await createAuditLog({
+    action: "settings_updated",
+    userType: "admin",
+    userId: admin.id,
+    userName: admin.name,
+    details: `App name “${appName}”, collection UPI ${upiId || "—"}, payee ${payeeName || "—"}`,
   });
   revalidatePath("/", "layout");
   return { ok: true };

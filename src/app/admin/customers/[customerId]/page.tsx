@@ -1,111 +1,270 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import AdminShell from "@/components/AdminShell";
+import ActionDialog from "@/components/admin/ActionDialog";
+import CustomerForm from "@/components/admin/CustomerForm";
+import Flash from "@/components/admin/Flash";
+import ShareLink from "@/components/admin/ShareLink";
+import { CustomerStatusBadge, PasswordBadge, PaymentBadge } from "@/components/admin/Badges";
 import { getCurrentAdmin } from "@/lib/session";
 import {
+  customerHasRecords,
+  getAdminById,
+  getApplicationsForCustomer,
   getCustomerById,
   getOrdersForCustomer,
+  getSettings,
+  inviteIsUsable,
   listAuditLogs,
   listPaymentsForCustomer,
 } from "@/lib/db";
-import { inr, shortDate } from "@/lib/format";
+import { dateTime, inr, shortDate } from "@/lib/format";
+import { inviteUrl } from "@/lib/links";
+import { auditLabel } from "@/lib/status";
 import {
   deactivateCustomerAction,
+  deleteCustomerAction,
   generateCustomerInviteAction,
+  reactivateCustomerAction,
   updateCustomerAdminAction,
 } from "@/app/admin/actions";
 
+const PAY_APP: Record<string, string> = { phonepe: "PhonePe", paytm: "Paytm", gpay: "GPay" };
+
 export default async function CustomerDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ customerId: string }>;
+  searchParams: Promise<{ notice?: string }>;
 }) {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
 
   const { customerId } = await params;
+  const { notice } = await searchParams;
   const customer = await getCustomerById(customerId);
-  if (!customer) redirect("/admin/customers");
+  if (!customer) notFound();
 
-  const orders = await getOrdersForCustomer(customer.id);
-  const payments = await listPaymentsForCustomer(customer.id);
-  const auditLogs = (await listAuditLogs(20)).filter((log) => log.customerId === customer.id);
+  const [orders, payments, applications, activity, hasRecords, settings, creator] =
+    await Promise.all([
+      getOrdersForCustomer(customer.id),
+      listPaymentsForCustomer(customer.id),
+      getApplicationsForCustomer(customer.id),
+      listAuditLogs({ customerId: customer.id, pageSize: 25 }),
+      customerHasRecords(customer.id),
+      getSettings(),
+      customer.createdBy ? getAdminById(customer.createdBy) : Promise.resolve(undefined),
+    ]);
+
+  const linkUsable = inviteIsUsable(customer);
+  const link = linkUsable && customer.inviteToken ? await inviteUrl(customer.inviteToken) : null;
+  const hidden = { customerId: customer.id };
+  const approvedTotal = payments
+    .filter((p) => p.status === "approved")
+    .reduce((sum, p) => sum + (p.approvedAmount ?? p.amount), 0);
 
   return (
     <AdminShell active="customers" adminName={admin.name} adminRole={admin.role}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+      <Flash notice={notice} />
+      <Link href="/admin/customers" className="adm-back">
+        ← Customers
+      </Link>
+      <div className="adm-page-head">
         <div>
           <h1>{customer.name}</h1>
-          <p className="adm-lead">Customer ID: {customer.customerCode ?? customer.id}</p>
+          <p className="adm-lead">
+            {customer.customerCode ?? customer.id} · +91 {customer.mobile}{" "}
+            <CustomerStatusBadge status={customer.status} />{" "}
+            <PasswordBadge customer={customer} />
+          </p>
         </div>
         <div className="adm-actions">
-          <form action={generateCustomerInviteAction}>
-            <input type="hidden" name="customerId" value={customer.id} />
-            <button type="submit" className="adm-btn adm-btn-primary">Generate access link</button>
-          </form>
-          <form action={deactivateCustomerAction}>
-            <input type="hidden" name="customerId" value={customer.id} />
-            <button type="submit" className="adm-btn adm-btn-reject">Deactivate</button>
-          </form>
+          {customer.status === "inactive" ? (
+            <ActionDialog
+              action={reactivateCustomerAction}
+              hidden={hidden}
+              triggerLabel="Reactivate"
+              triggerClassName="adm-btn adm-btn-approve"
+              title="Reactivate customer?"
+              description={
+                customer.passwordSetAt
+                  ? "The customer can sign in again with their existing password."
+                  : "The account returns to pending activation. Issue a new access link afterwards."
+              }
+              submitLabel="Reactivate"
+              submitClassName="adm-btn adm-btn-approve"
+            />
+          ) : (
+            <ActionDialog
+              action={deactivateCustomerAction}
+              hidden={hidden}
+              triggerLabel="Deactivate"
+              triggerClassName="adm-btn adm-btn-reject"
+              title="Deactivate customer?"
+              description="They are signed out immediately and can't sign in or use their access link. Their loans and payment history are kept."
+              submitLabel="Deactivate"
+              submitClassName="adm-btn adm-btn-danger"
+            >
+              <label className="adm-field">
+                Reason (optional, internal)
+                <input name="reason" maxLength={300} />
+              </label>
+            </ActionDialog>
+          )}
+          {admin.role === "owner" && !hasRecords ? (
+            <ActionDialog
+              action={deleteCustomerAction}
+              hidden={hidden}
+              triggerLabel="Delete"
+              triggerClassName="adm-btn adm-btn-reject"
+              title="Delete customer permanently?"
+              description="Only possible because this customer has no loans, applications or payments. This can't be undone."
+              submitLabel="Delete permanently"
+              submitClassName="adm-btn adm-btn-danger"
+              pendingLabel="Deleting…"
+            />
+          ) : null}
         </div>
       </div>
 
-      <div className="adm-section">
-        <h2>Customer information</h2>
-        <form action={updateCustomerAdminAction} className="adm-form-grid">
-          <input type="hidden" name="customerId" value={customer.id} />
-          <label className="adm-field">
-            Customer name
-            <input name="name" defaultValue={customer.name} required />
-          </label>
-          <label className="adm-field">
-            Mobile
-            <input name="mobile" defaultValue={customer.mobile} required />
-          </label>
-          <label className="adm-field">
-            Email
-            <input name="email" defaultValue={customer.email ?? ""} />
-          </label>
-          <label className="adm-field">
-            Payment method
-            <select name="paymentMethod" defaultValue={customer.paymentMethod ?? "UPI"}>
-              <option value="UPI">UPI</option>
-              <option value="Bank transfer">Bank transfer</option>
-              <option value="Cash">Cash</option>
-            </select>
-          </label>
-          <label className="adm-field">
-            UPI ID
-            <input name="upiId" defaultValue={customer.upiId ?? ""} />
-          </label>
-          <label className="adm-field">
-            Status
-            <select name="status" defaultValue={customer.status ?? "pending"}>
-              <option value="active">Active</option>
-              <option value="pending">Pending</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </label>
-          <div className="adm-form-foot">
-            <button type="submit" className="adm-btn adm-btn-primary">Save customer</button>
-          </div>
-        </form>
+      <div className="adm-grid-2">
+        <div className="adm-section">
+          <h2>Account</h2>
+          <dl className="adm-dl">
+            <dt>Customer ID</dt>
+            <dd className="adm-mono">
+              {customer.customerCode ?? "—"} <span className="adm-micro">({customer.id})</span>
+            </dd>
+            <dt>Mobile</dt>
+            <dd className="adm-mono">+91 {customer.mobile}</dd>
+            <dt>Email</dt>
+            <dd>{customer.email || "—"}</dd>
+            <dt>Payment method</dt>
+            <dd>{customer.paymentMethod ?? "UPI"}</dd>
+            <dt>UPI ID</dt>
+            <dd className="adm-mono">{customer.upiId || "—"}</dd>
+            <dt>Created</dt>
+            <dd>
+              {dateTime(customer.createdAt)}
+              {creator ? ` by ${creator.name}` : customer.createdBy ? "" : " (self sign-up)"}
+            </dd>
+            <dt>Last activity</dt>
+            <dd>{dateTime(customer.lastActivityAt)}</dd>
+            <dt>Last sign-in</dt>
+            <dd>{dateTime(customer.lastLoginAt)}</dd>
+            {customer.deactivatedAt ? (
+              <>
+                <dt>Deactivated</dt>
+                <dd>{dateTime(customer.deactivatedAt)}</dd>
+              </>
+            ) : null}
+          </dl>
+        </div>
+
+        <div className="adm-section">
+          <h2>Password &amp; activation</h2>
+          <dl className="adm-dl">
+            <dt>Status</dt>
+            <dd>
+              <PasswordBadge customer={customer} />
+            </dd>
+            <dt>Password set</dt>
+            <dd>{dateTime(customer.passwordSetAt)}</dd>
+            <dt>Account activated</dt>
+            <dd>{dateTime(customer.activatedAt)}</dd>
+            <dt>Link generated</dt>
+            <dd>{customer.inviteToken ? dateTime(customer.inviteCreatedAt) : "—"}</dd>
+            <dt>Link opened</dt>
+            <dd>
+              {customer.inviteToken
+                ? customer.inviteOpenedAt
+                  ? dateTime(customer.inviteOpenedAt)
+                  : "Not yet"
+                : "—"}
+            </dd>
+            <dt>Link expires</dt>
+            <dd>{customer.inviteToken ? dateTime(customer.inviteExpiresAt) : "—"}</dd>
+          </dl>
+          <p className="adm-note">The customer&apos;s password is hashed and is never shown here.</p>
+        </div>
       </div>
 
       <div className="adm-section">
         <h2>Access link</h2>
-        <div style={{ padding: 16 }}>
-          <div className="adm-field">
-            <input value={customer.inviteLink ?? "Not generated yet"} readOnly />
-          </div>
-          {customer.inviteLink ? (
-            <Link href={customer.inviteLink} className="adm-btn adm-btn-primary">Open link</Link>
+        <div className="adm-pad">
+          {customer.status === "inactive" ? (
+            <p className="adm-muted">Reactivate the customer to issue an access link.</p>
+          ) : link ? (
+            <>
+              <p className="adm-muted">
+                Personal single-use link for {customer.name}. It stops working once the
+                password is set, when a new link is generated, or after{" "}
+                {dateTime(customer.inviteExpiresAt)}.
+              </p>
+              <ShareLink
+                url={link}
+                mobile={customer.mobile}
+                email={customer.email}
+                customerName={customer.name}
+                appName={settings.appName}
+              />
+            </>
+          ) : customer.inviteToken ? (
+            <p className="adm-muted">The previous link expired. Generate a new one to share.</p>
+          ) : customer.passwordSetAt ? (
+            <p className="adm-muted">
+              Password set on {dateTime(customer.passwordSetAt)}. If the customer forgets it,
+              issue a reset link — it lets them choose a new password.
+            </p>
+          ) : (
+            <p className="adm-muted">No access link yet.</p>
+          )}
+          {customer.status !== "inactive" ? (
+            <div className="adm-actions adm-mt">
+              <ActionDialog
+                action={generateCustomerInviteAction}
+                hidden={hidden}
+                triggerLabel={
+                  link ? "Regenerate link" : customer.passwordSetAt ? "Issue password reset link" : "Generate link"
+                }
+                triggerClassName={link ? "adm-btn adm-btn-ghost" : "adm-btn adm-btn-primary"}
+                title={link ? "Replace the access link?" : "Generate access link?"}
+                description={
+                  link
+                    ? "The current link stops working immediately. Share the new one with the customer."
+                    : customer.passwordSetAt
+                      ? "The customer can use this link to choose a new password. Their current password keeps working until then."
+                      : "A personal link valid for 7 days will be created."
+                }
+                submitLabel="Generate"
+              />
+            </div>
           ) : null}
         </div>
       </div>
 
       <div className="adm-section">
-        <h2>Payment history</h2>
+        <h2>Edit customer</h2>
+        <CustomerForm
+          action={updateCustomerAdminAction}
+          customerId={customer.id}
+          initial={{
+            name: customer.name,
+            mobile: customer.mobile,
+            email: customer.email ?? "",
+            upiId: customer.upiId ?? "",
+            paymentMethod: customer.paymentMethod ?? "UPI",
+          }}
+          submitLabel="Save changes"
+        />
+      </div>
+
+      <div className="adm-section">
+        <h2>
+          Payment history ({payments.length})
+          {approvedTotal > 0 ? <span className="adm-h2-meta">{inr(approvedTotal)} approved</span> : null}
+        </h2>
         {payments.length === 0 ? (
           <div className="adm-empty">No payments recorded for this customer.</div>
         ) : (
@@ -113,21 +272,62 @@ export default async function CustomerDetailPage({
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>Date</th>
+                  <th>Transaction</th>
+                  <th>Submitted</th>
+                  <th>Paid on</th>
+                  <th>Loan</th>
                   <th>Amount</th>
                   <th>UTR</th>
-                  <th>Status</th>
                   <th>Method</th>
+                  <th>Status</th>
+                  <th>Reviewed</th>
+                  <th>Reason / refund</th>
                 </tr>
               </thead>
               <tbody>
-                {payments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td>{shortDate(payment.createdAt)}</td>
-                    <td>{inr(payment.amount)}</td>
-                    <td className="adm-mono">{payment.utr}</td>
-                    <td><span className={`adm-badge ${payment.status}`}>{payment.status}</span></td>
-                    <td>{payment.payApp}</td>
+                {payments.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <Link href={`/admin/payments/${p.id}`} className="adm-link adm-mono">
+                        {p.id}
+                      </Link>
+                      {p.hasProof ? <div className="adm-micro">📎 screenshot</div> : null}
+                    </td>
+                    <td>{dateTime(p.createdAt)}</td>
+                    <td>{p.paymentDate ? shortDate(p.paymentDate) : "—"}</td>
+                    <td>{p.productName ?? p.orderId}</td>
+                    <td>
+                      {inr(p.amount)}
+                      {p.approvedAmount && p.approvedAmount !== p.amount ? (
+                        <div className="adm-micro">verified {inr(p.approvedAmount)}</div>
+                      ) : null}
+                    </td>
+                    <td className="adm-mono">{p.utr}</td>
+                    <td>
+                      {p.paymentMethod ?? "UPI"} · {PAY_APP[p.payApp] ?? p.payApp}
+                    </td>
+                    <td>
+                      <PaymentBadge status={p.status} />
+                    </td>
+                    <td>
+                      {p.reviewedAt ? (
+                        <>
+                          {dateTime(p.reviewedAt)}
+                          <div className="adm-micro">{p.reviewedByName}</div>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="wrap">
+                      {p.reason ?? ""}
+                      {p.refundReference ? (
+                        <div className="adm-micro">
+                          Refund {p.refundReference} · {shortDate(p.refundedAt ?? p.createdAt)}
+                        </div>
+                      ) : null}
+                      {!p.reason && !p.refundReference ? "—" : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -137,18 +337,23 @@ export default async function CustomerDetailPage({
       </div>
 
       <div className="adm-section">
-        <h2>Applications / loans</h2>
+        <h2>Loans ({orders.length})</h2>
         {orders.length === 0 ? (
-          <div className="adm-empty">No loan records yet.</div>
+          <div className="adm-empty">
+            No loans yet. <Link href="/admin/loans/new" className="adm-link">Create a loan</Link>
+          </div>
         ) : (
           <div className="adm-table-wrap">
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>Order</th>
+                  <th>Loan ID</th>
                   <th>Product</th>
-                  <th>Amount</th>
+                  <th>Borrowed</th>
+                  <th>Paid</th>
+                  <th>Still due</th>
                   <th>Status</th>
+                  <th>Due date</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,8 +361,13 @@ export default async function CustomerDetailPage({
                   <tr key={order.id}>
                     <td className="adm-mono">{order.id}</td>
                     <td>{order.productName}</td>
-                    <td>{inr(order.amountDue)}</td>
-                    <td><span className={`adm-badge ${order.status}`}>{order.status}</span></td>
+                    <td>{inr(order.principal)}</td>
+                    <td>{order.amountPaid ? inr(order.amountPaid) : "—"}</td>
+                    <td>{order.amountDue > 0 ? inr(order.amountDue) : "—"}</td>
+                    <td>
+                      <span className={`adm-badge ${order.status}`}>{order.status}</span>
+                    </td>
+                    <td>{shortDate(order.dueDate)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -166,33 +376,70 @@ export default async function CustomerDetailPage({
         )}
       </div>
 
-      <div className="adm-section">
-        <h2>Audit log</h2>
-        {auditLogs.length === 0 ? (
-          <div className="adm-empty">No activity yet.</div>
-        ) : (
+      {applications.length > 0 ? (
+        <div className="adm-section">
+          <h2>Loan applications ({applications.length})</h2>
           <div className="adm-table-wrap">
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Action</th>
-                  <th>By</th>
-                  <th>Details</th>
+                  <th>Applied</th>
+                  <th>Product</th>
+                  <th>Amount</th>
+                  <th>Tenure</th>
+                  <th>Status</th>
+                  <th>Reason</th>
                 </tr>
               </thead>
               <tbody>
-                {auditLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td>{shortDate(log.createdAt)}</td>
-                    <td>{log.action}</td>
-                    <td>{log.userName}</td>
-                    <td>{log.details ?? log.reason ?? "—"}</td>
+                {applications.map((a) => (
+                  <tr key={a.id}>
+                    <td>{dateTime(a.createdAt)}</td>
+                    <td>{a.productName}</td>
+                    <td>{inr(a.amount)}</td>
+                    <td>{a.tenureMonths} mo</td>
+                    <td>
+                      <span className={`adm-badge ${a.status}`}>{a.status}</span>
+                    </td>
+                    <td className="wrap">{a.reason ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </div>
+      ) : null}
+
+      <div className="adm-section">
+        <h2>
+          Activity
+          {activity.total > activity.rows.length ? (
+            <Link href={`/admin/activity?customerId=${customer.id}`}>View all {activity.total}</Link>
+          ) : null}
+        </h2>
+        {activity.rows.length === 0 ? (
+          <div className="adm-empty">No activity yet.</div>
+        ) : (
+          <ul className="adm-timeline">
+            {activity.rows.map((log) => (
+              <li key={log.id}>
+                <time>{dateTime(log.createdAt)}</time>
+                <div>
+                  <b>{auditLabel(log.action)}</b>{" "}
+                  <span className="adm-micro">
+                    by {log.userName} ({log.userType})
+                  </span>
+                  {log.reason ? <div>Reason: {log.reason}</div> : null}
+                  {log.details ? <div className="adm-muted">{log.details}</div> : null}
+                  {log.paymentId ? (
+                    <Link href={`/admin/payments/${log.paymentId}`} className="adm-micro adm-link">
+                      {log.paymentId}
+                    </Link>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </AdminShell>

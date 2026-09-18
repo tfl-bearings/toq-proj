@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Order } from "@/lib/types";
+import type { Order, PaymentStatus } from "@/lib/types";
+import { PaymentStatusPill } from "./CustomerPayments";
 import { inr, shortDate } from "@/lib/format";
 
 const TABS = [
@@ -33,7 +34,13 @@ function inTab(order: Order, tab: TabKey): boolean {
   return order.status === tab;
 }
 
-export default function OrderTabs({ orders }: { orders: Order[] }) {
+export default function OrderTabs({
+  orders,
+  lastPayment = {},
+}: {
+  orders: Order[];
+  lastPayment?: Record<string, { status: PaymentStatus; reason?: string }>;
+}) {
   const [tab, setTab] = useState<TabKey>("all");
   const visible = orders.filter((o) => inTab(o, tab));
 
@@ -82,6 +89,17 @@ export default function OrderTabs({ orders }: { orders: Order[] }) {
                     <dt>Due date</dt>
                     <dd>{shortDate(o.dueDate)}</dd>
                   </div>
+                  {lastPayment[o.id] ? (
+                    <div>
+                      <dt>Last payment</dt>
+                      <dd>
+                        <PaymentStatusPill status={lastPayment[o.id].status} />
+                        {lastPayment[o.id].reason ? (
+                          <small className="mloan-dd-note">{lastPayment[o.id].reason}</small>
+                        ) : null}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div>
                     <dt>Action</dt>
                     <dd>
@@ -89,7 +107,11 @@ export default function OrderTabs({ orders }: { orders: Order[] }) {
                         <span className="mloan-pill">Closed</span>
                       ) : (
                         <Link className="mloan-pill" href={`/repay/${o.id}`}>
-                          {o.status === "review" ? "View status" : "Repay now"}
+                          {o.status === "review"
+                            ? "View status"
+                            : lastPayment[o.id] && lastPayment[o.id].status !== "approved"
+                              ? "Pay again"
+                              : "Repay now"}
                         </Link>
                       )}
                     </dd>

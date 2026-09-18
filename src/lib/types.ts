@@ -6,17 +6,21 @@ export type OrderStatus =
   | "paid" // verified & closed
   | "overdue"; // past due date, still unpaid
 
+// pending  = created by an operator, password not yet set
+// active   = password set, can sign in
+// inactive = deactivated by an operator, cannot sign in
 export type CustomerStatus = "active" | "pending" | "inactive";
 export type PasswordSetupStatus = "not_set" | "pending" | "set" | "activated";
+
+// Every payment attempt is its own record and moves through these states.
+// Legacy values ("review" / "success" / "failed") are migrated on startup.
 export type PaymentStatus =
-  | "review"
-  | "success"
-  | "failed"
-  | "approved"
-  | "rejected"
-  | "refund_pending"
-  | "refunded"
-  | "repayment_required";
+  | "pending" // submitted by the customer, awaiting manual review
+  | "approved" // verified against the bank statement
+  | "rejected" // not accepted; no follow-up requested
+  | "repayment_required" // not accepted; customer must pay again
+  | "refund_pending" // not accepted; money received will be returned
+  | "refunded"; // refund sent back to the customer
 
 export type PayApp = "phonepe" | "paytm" | "gpay";
 
@@ -32,15 +36,29 @@ export interface Customer {
   paymentMethod?: string;
   upiId?: string;
   customerCode?: string;
+  // Single-use access link for password setup. Cleared once used.
   inviteToken?: string;
-  inviteLink?: string;
+  inviteLink?: string; // legacy: links are now built from the token
+  inviteCreatedAt?: string;
+  inviteExpiresAt?: string;
+  inviteOpenedAt?: string;
   passwordSetAt?: string;
   activatedAt?: string;
   lastActivityAt?: string;
+  lastLoginAt?: string;
   createdAt: string;
+  createdBy?: string; // admin id, when created from the operator console
   updatedAt?: string;
   deactivatedAt?: string;
 }
+
+// Customer row as returned by admin list queries (no password material).
+export type CustomerSummary = Omit<Customer, "passwordHash" | "passwordSalt"> & {
+  loanCount: number;
+  outstanding: number;
+  paymentCount: number;
+  lastPaymentStatus?: PaymentStatus;
+};
 
 export interface Product {
   id: string;
@@ -59,7 +77,8 @@ export interface Order {
   productId: string;
   productName: string;
   principal: number; // amount originally borrowed
-  amountDue: number; // total amount to repay
+  amountDue: number; // amount still to repay
+  amountPaid?: number; // sum of approved payments
   tenureMonths: number; // term of the loan
   rateMonthly: number; // % per month applied
   status: OrderStatus;
@@ -67,6 +86,7 @@ export interface Order {
   payeeName: string; // name shown on the UPI request
   dueDate: string; // ISO date
   createdAt: string;
+  paidAt?: string;
   applicationId?: string; // origin application, if created from one
 }
 
@@ -93,25 +113,45 @@ export interface Payment {
   id: string;
   orderId: string;
   customerId: string;
-  amount: number;
-  upiId: string;
+  amount: number; // amount the customer says they paid
+  approvedAmount?: number; // amount verified by the reviewer
+  amountDueAtSubmission?: number;
+  upiId: string; // collection VPA the customer paid to
   utr: string; // 12-digit UPI transaction reference the customer enters
   payApp: PayApp;
   status: PaymentStatus;
   paymentMethod?: string;
   paymentDate?: string;
-  proofImage?: string;
+  proofImage?: string; // data URI; never selected by list queries
+  proofMime?: string;
   proofFilename?: string;
+  hasProof?: boolean; // computed by list queries
+  previousPaymentId?: string; // earlier rejected attempt for the same loan
   createdAt: string;
   // Audit trail for the manual review decision.
   reviewedBy?: string; // admin id
   reviewedByName?: string; // admin name, denormalised for display
   reviewedAt?: string; // ISO timestamp of approve/reject
   reason?: string; // reason captured on rejection
-  refundStatus?: "pending" | "completed";
+  reviewNote?: string; // optional explanation shown to the customer
+  // Refund trail.
+  refundInitiatedAt?: string;
+  refundInitiatedBy?: string;
+  refundInitiatedByName?: string;
+  refundedAt?: string;
+  refundedBy?: string;
+  refundedByName?: string;
   refundReference?: string;
-  refundDate?: string;
+  refundNote?: string;
 }
+
+// Payment row joined with its customer, for admin lists.
+export type PaymentRow = Payment & {
+  customerName?: string;
+  customerMobile?: string;
+  customerCode?: string;
+  productName?: string;
+};
 
 export interface Session {
   token: string;
@@ -162,15 +202,27 @@ export interface AuditLog {
   createdAt: string;
 }
 
-export interface DB {
-  customers: Customer[];
-  products: Product[];
-  orders: Order[];
-  payments: Payment[];
-  applications: Application[];
-  sessions: Session[];
-  admins: Admin[];
-  adminSessions: AdminSession[];
-  settings: Settings;
-  auditLogs: AuditLog[];
+export type NotificationKind =
+  | "account_created"
+  | "password_set"
+  | "payment_submitted"
+  | "payment_approved"
+  | "payment_rejected"
+  | "repayment_required"
+  | "refund_pending"
+  | "refunded"
+  | "loan_created"
+  | "application_approved"
+  | "application_rejected";
+
+export interface Notification {
+  id: string;
+  customerId: string;
+  kind: NotificationKind;
+  title: string;
+  message: string;
+  paymentId?: string;
+  orderId?: string;
+  readAt?: string;
+  createdAt: string;
 }

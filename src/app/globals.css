@@ -461,3 +461,45 @@ html,body,.mloan-app-shell{touch-action:manipulation;-webkit-text-size-adjust:10
   color: var(--mloan-on-primary);
 }
 .mloan-hero .mloan-btn-primary { color: var(--mloan-on-primary); }
+
+
+
+/* toq-app: payment status, history and notifications */
+.mloan-pay-status{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.mloan-pay-status.ps-pending{background:#eaf6fc;color:#0a6aa1}
+.mloan-pay-status.ps-approved{background:#e9f8ef;color:#17824f}
+.mloan-pay-status.ps-rejected{background:#fff0ef;color:#b72c23}
+.mloan-pay-status.ps-repayment_required{background:#fff4ce;color:#886200}
+.mloan-pay-status.ps-refund_pending{background:#f3ecff;color:#6a3fc1}
+.mloan-pay-status.ps-refunded{background:#eef1f4;color:#45525d}
+.mloan-payment-history{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.mloan-payment-history li{border:1px solid var(--mloan-line);border-radius:12px;padding:12px 13px;background:#fff}
+.mloan-payment-history-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mloan-payment-history-head b{font-size:16px}
+.mloan-payment-history-meta{font-size:11px;color:var(--mloan-muted);margin-top:3px}
+.mloan-payment-history-meta a{color:var(--mloan-primary);font-weight:700;text-decoration:none}
+.mloan-payment-history p{font-size:12px;margin:8px 0 4px;line-height:1.45}
+.mloan-payment-history small{font-size:10px;color:#9aa2aa}
+.mloan-alert-title{font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mloan-payment-page .mloan-alert{margin:0 0 14px;font-size:12px;line-height:1.45}
+.mloan-status-card{margin:0 16px;border:1px solid var(--mloan-line);border-radius:12px;padding:13px 14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.035)}
+.mloan-status-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.mloan-status-card-head small{color:var(--mloan-muted);font-size:11px}
+.mloan-status-card strong{font-size:15px}
+.mloan-status-card p{font-size:12px;margin:6px 0;color:#45525d}
+.mloan-status-card a{font-size:12px;font-weight:700;color:var(--mloan-primary);text-decoration:none}
+.mloan-dd-note{display:block;font-size:10px;color:var(--mloan-muted);margin-top:3px}
+.mloan-notifications{list-style:none;margin:0;padding:12px 16px;display:grid;gap:10px}
+.mloan-notifications li{border:1px solid var(--mloan-line);border-radius:12px;padding:12px 13px;background:#fff}
+.mloan-notifications li.unread{border-color:var(--mloan-primary);background:#f6fbfe}
+.mloan-notification-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.mloan-notification-head b{font-size:14px}
+.mloan-notification-head time{font-size:10px;color:var(--mloan-muted);white-space:nowrap}
+.mloan-notifications p{font-size:12px;margin:6px 0;color:#45525d;line-height:1.45}
+.mloan-notifications a{font-size:12px;font-weight:700;color:var(--mloan-primary);text-decoration:none}
+.mloan-topbar-home.with-bell{grid-template-columns:minmax(0,1fr) auto auto 42px}
+.mloan-topbar-home.with-bell .mloan-install-btn-top{grid-column:2}
+.mloan-topbar-home.with-bell .mloan-top-avatar{grid-column:4}
+.mloan-bell{grid-column:3;position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;font-size:18px;text-decoration:none}
+.mloan-bell span{position:absolute;top:-2px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#e5484d;color:#fff;font-size:10px;font-weight:800;line-height:17px;text-align:center}
+.mloan-link-button{display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:14px}

@@ -19,5 +19,24 @@ export function shortDate(iso: string): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Kolkata",
   });
+}
+
+// Date + time in IST, for audit trails and review timestamps.
+export function dateTime(iso: string | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+// Masks all but the last four digits of a mobile number.
+export function maskMobile(mobile: string): string {
+  return `${"•".repeat(Math.max(0, mobile.length - 4))}${mobile.slice(-4)}`;
 }

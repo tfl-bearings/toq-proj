@@ -1,6 +1,6 @@
--- Run this script once against the Neon database configured by DATABASE_URL.
--- Records retain the app's domain shape in jsonb while each collection has its
--- own table and indexed primary key. Every seed is idempotent.
+-- Optional: the app creates and migrates this schema itself on first request
+-- (src/lib/db.ts, migrate()). Run this script to provision a database ahead of
+-- time. Records keep the domain shape in jsonb; every statement is idempotent.
 
 CREATE TABLE IF NOT EXISTS customers (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS products (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
@@ -11,11 +11,25 @@ CREATE TABLE IF NOT EXISTS sessions (id text PRIMARY KEY, data jsonb NOT NULL, c
 CREATE TABLE IF NOT EXISTS admins (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS admin_sessions (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS settings (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS audit_logs (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS notifications (id text PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
 
 CREATE INDEX IF NOT EXISTS customers_mobile_idx ON customers ((data->>'mobile'));
 CREATE INDEX IF NOT EXISTS orders_customer_idx ON orders ((data->>'customerId'));
 CREATE INDEX IF NOT EXISTS payments_order_idx ON payments ((data->>'orderId'));
 CREATE INDEX IF NOT EXISTS applications_customer_idx ON applications ((data->>'customerId'));
+CREATE INDEX IF NOT EXISTS customers_invite_idx ON customers ((data->>'inviteToken'));
+CREATE INDEX IF NOT EXISTS payments_customer_idx ON payments ((data->>'customerId'));
+CREATE INDEX IF NOT EXISTS payments_status_idx ON payments ((data->>'status'));
+CREATE INDEX IF NOT EXISTS payments_utr_idx ON payments ((data->>'utr'));
+CREATE INDEX IF NOT EXISTS audit_logs_customer_idx ON audit_logs ((data->>'customerId'));
+CREATE INDEX IF NOT EXISTS audit_logs_payment_idx ON audit_logs ((data->>'paymentId'));
+CREATE INDEX IF NOT EXISTS notifications_customer_idx ON notifications ((data->>'customerId'));
+
+-- Integrity guards (the app also creates these on startup, see src/lib/db.ts).
+CREATE UNIQUE INDEX IF NOT EXISTS customers_mobile_uidx ON customers ((data->>'mobile'));
+CREATE UNIQUE INDEX IF NOT EXISTS payments_utr_live_uidx ON payments ((data->>'utr')) WHERE data->>'status' IN ('pending', 'approved', 'refund_pending', 'refunded');
+CREATE UNIQUE INDEX IF NOT EXISTS payments_order_pending_uidx ON payments ((data->>'orderId')) WHERE data->>'status' = 'pending';
 
 INSERT INTO settings (id, data) VALUES ('global', '{"appName":"Rupee Money","themeColor":"#66c4ff","upiId":"rupeemoney.collect@upi","payeeName":"Rupee Money","supportEmail":"support@toqcredit.example","supportPhone":"1800-000-000"}'::jsonb)
 ON CONFLICT (id) DO NOTHING;

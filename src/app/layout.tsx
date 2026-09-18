@@ -26,6 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: `${s.appName} — Credit Wallet`,
     description: "Manage your loan account and repayments.",
     manifest: "/manifest.webmanifest",
+    icons: { icon: "/icon.svg" },
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",

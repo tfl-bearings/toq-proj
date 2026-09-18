@@ -1,29 +1,55 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import { PaymentStatusNote, PaymentStatusPill } from "@/components/CustomerPayments";
 import { getCurrentCustomer } from "@/lib/session";
-import { getOrdersForCustomer, getProducts, getSettings } from "@/lib/db";
+import {
+  countUnreadNotifications,
+  getOrdersForCustomer,
+  getProducts,
+  getSettings,
+  listPaymentsForCustomer,
+} from "@/lib/db";
 import { inr } from "@/lib/format";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ welcome?: string }>;
+}) {
   const customer = await getCurrentCustomer();
   if (!customer) redirect("/login");
 
+  const { welcome } = await searchParams;
   const initial = (customer.name.trim()[0] ?? "U").toUpperCase();
   const firstName = customer.name.split(" ")[0] || "there";
-  const products = await getProducts();
-  const orders = await getOrdersForCustomer(customer.id);
+  const [products, orders, payments, unread, { appName }] = await Promise.all([
+    getProducts(),
+    getOrdersForCustomer(customer.id),
+    listPaymentsForCustomer(customer.id),
+    countUnreadNotifications(customer.id),
+    getSettings(),
+  ]);
   const due = orders.find((o) => o.status === "due" || o.status === "overdue");
+  const latestPayment = payments[0];
   const last4 = customer.mobile.slice(-4);
-  const { appName } = await getSettings();
 
   return (
-    <AppShell variant="home" title={appName} initial={initial}>
+    <AppShell variant="home" title={appName} initial={initial} unread={unread}>
+      {welcome ? (
+        <div className="mloan-alert success" role="status" style={{ margin: 16 }}>
+          Your password is set and your account is active. Welcome, {firstName}!
+        </div>
+      ) : null}
+
       <section className="mloan-hero">
         <div>
           <h1>Hello, {firstName}</h1>
           <p>Borrow smart. Repay on time. No surprises.</p>
-          <Link className="mloan-btn mloan-btn-primary" href="/orders">
+          <Link
+            className="mloan-btn mloan-btn-primary"
+            href={due ? `/repay/${due.id}` : "/orders"}
+          >
             {due ? `Repay ${inr(due.amountDue)}` : "View my loans"}
           </Link>
         </div>
@@ -33,14 +59,30 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {latestPayment ? (
+        <section className="mloan-status-card">
+          <div className="mloan-status-card-head">
+            <small>Latest payment</small>
+            <PaymentStatusPill status={latestPayment.status} />
+          </div>
+          <strong>
+            {inr(latestPayment.amount)} · {latestPayment.productName ?? "Loan"}
+          </strong>
+          <p>
+            <PaymentStatusNote payment={latestPayment} />
+          </p>
+          <Link href={`/repay/${latestPayment.orderId}`}>View details →</Link>
+        </section>
+      ) : null}
+
       <div className="mloan-quick-grid">
         <Link href="/orders">
           <span aria-hidden>💳</span>
           <b>My Loans</b>
         </Link>
-        <Link href="/orders">
-          <span aria-hidden>📆</span>
-          <b>Repay</b>
+        <Link href="/payments">
+          <span aria-hidden>🧾</span>
+          <b>Payments</b>
         </Link>
         <Link href="/faq">
           <span aria-hidden>❓</span>

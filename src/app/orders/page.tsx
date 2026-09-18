@@ -3,9 +3,13 @@ import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import OrderTabs from "@/components/OrderTabs";
 import { getCurrentCustomer } from "@/lib/session";
-import { getApplicationsForCustomer, getOrdersForCustomer } from "@/lib/db";
+import {
+  getApplicationsForCustomer,
+  getOrdersForCustomer,
+  listPaymentsForCustomer,
+} from "@/lib/db";
 import { inr, shortDate } from "@/lib/format";
-import type { ApplicationStatus } from "@/lib/types";
+import type { ApplicationStatus, PaymentStatus } from "@/lib/types";
 
 const APP_STATE: Record<ApplicationStatus, { cls: string; label: string }> = {
   pending: { cls: "is-not-paid", label: "Under review" },
@@ -25,6 +29,11 @@ export default async function OrdersPage({
   const initial = (customer.name.trim()[0] ?? "U").toUpperCase();
   const orders = await getOrdersForCustomer(customer.id);
   const applications = await getApplicationsForCustomer(customer.id);
+  const payments = await listPaymentsForCustomer(customer.id); // newest first
+  const lastPayment: Record<string, { status: PaymentStatus; reason?: string }> = {};
+  for (const p of payments) {
+    lastPayment[p.orderId] ??= { status: p.status, reason: p.reason };
+  }
 
   return (
     <AppShell variant="inner" title="My Loans" initial={initial}>
@@ -90,7 +99,7 @@ export default async function OrdersPage({
       <div className="mloan-section-heading simple" id="loans" style={{ margin: 16 }}>
         <h2>Your loans &amp; repayments</h2>
       </div>
-      <OrderTabs orders={orders} />
+      <OrderTabs orders={orders} lastPayment={lastPayment} />
     </AppShell>
   );
 }

@@ -6,11 +6,13 @@ export default function TopBar({
   title,
   initial,
   back = "/home",
+  unread,
 }: {
   variant: "home" | "inner";
   title: string;
   initial: string;
   back?: string;
+  unread?: number;
 }) {
   const avatar = (
     <Link href="/profile" className="mloan-top-avatar" aria-label="Profile">
@@ -20,7 +22,13 @@ export default function TopBar({
 
   if (variant === "home") {
     return (
-      <header className="mloan-topbar mloan-topbar-home">
+      <header
+        className={
+          unread !== undefined
+            ? "mloan-topbar mloan-topbar-home with-bell"
+            : "mloan-topbar mloan-topbar-home"
+        }
+      >
         <div className="mloan-brand">
           <span className="mloan-header-logo" aria-hidden>
             💳
@@ -28,6 +36,17 @@ export default function TopBar({
           <span>{title}</span>
         </div>
         <InstallButton />
+        {unread !== undefined ? (
+          <Link
+            href="/notifications"
+            prefetch={false}
+            className="mloan-bell"
+            aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+          >
+            🔔
+            {unread > 0 ? <span>{unread > 9 ? "9+" : unread}</span> : null}
+          </Link>
+        ) : null}
         {avatar}
       </header>
     );

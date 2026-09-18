@@ -4,7 +4,15 @@ import { getSettings } from "@/lib/db";
 import LoginForm from "@/components/LoginForm";
 import InstallButton from "@/components/InstallButton";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string }>;
+}) {
+  // Access links were once issued as /login?invite=<token>.
+  const { invite } = await searchParams;
+  if (invite) redirect(`/invite/${encodeURIComponent(invite)}`);
+
   const customer = await getCurrentCustomer();
   if (customer) redirect("/home");
   const { appName } = await getSettings();

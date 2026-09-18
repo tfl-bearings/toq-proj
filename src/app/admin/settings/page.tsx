@@ -17,6 +17,12 @@ export default async function AdminSettingsPage() {
 
       <div className="adm-section">
         <h2>App configuration</h2>
+        {admin.role !== "owner" ? (
+          <p className="adm-note adm-note-top">
+            Only the owner can change settings — the collection UPI ID decides where
+            customer payments go.
+          </p>
+        ) : null}
         <SettingsForm settings={settings} />
         <p className="adm-note">
           The collection UPI ID and payee name are used for new repayment
