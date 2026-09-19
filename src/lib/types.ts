@@ -45,7 +45,13 @@ export interface Customer {
   inviteCreatedAt?: string;
   inviteExpiresAt?: string;
   inviteOpenedAt?: string;
+  // Activation code: the same single-use credential as the access link, for
+  // setting up the account from the main app (mobile + code). Issued, rotated,
+  // expired and burned together with inviteToken.
+  activationCode?: string;
+  activationAttempts?: number; // wrong codes entered; locked at the limit
   passwordSetAt?: string;
+  passwordSetVia?: "invite_link" | "activation_code" | "self_signup";
   activatedAt?: string;
   lastActivityAt?: string;
   lastLoginAt?: string;
@@ -242,7 +248,6 @@ export type NotificationKind =
   | "repayment_required"
   | "refund_pending"
   | "refunded"
-  | "loan_created"
   | "loan_paid"
   | "loan_cancelled"
   | "application_approved"

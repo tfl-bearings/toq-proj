@@ -167,12 +167,8 @@ export async function createCustomerAdminAction(
     customerId: customer.id,
     details: `Access link issued, valid until ${dateTime(customer.inviteExpiresAt)}`,
   });
-  await createNotification({
-    customerId: customer.id,
-    kind: "account_created",
-    title: "Your account was created",
-    message: "Welcome! Your account has been set up. You can now repay your loans securely.",
-  });
+  // Operator actions are recorded in the audit log only; the customer is
+  // notified of customer-relevant events (activation, payments, outcomes).
 
   revalidateAdmin();
   redirect(`/admin/customers/${customer.id}?notice=created`);
@@ -780,13 +776,7 @@ export async function createLoanAction(
     orderId: order.id,
     details: `${productName} · ${inr(amount)} · due ${shortDate(order.dueDate)}${upiId ? ` · UPI ${upiId}` : ""}`,
   });
-  await createNotification({
-    customerId: customer.id,
-    kind: "loan_created",
-    title: "New loan added",
-    message: `${productName}: ${inr(amount)} is due by ${shortDate(order.dueDate)}.`,
-    orderId: order.id,
-  });
+  // No customer notification: the loan itself appears under Pending Loans.
 
   revalidateAdmin();
   revalidatePath("/home");

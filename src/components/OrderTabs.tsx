@@ -9,7 +9,7 @@ import { isOverdue } from "@/lib/loan";
 
 const TABS = [
   { key: "all", label: "All" },
-  { key: "due", label: "Repayment Due" },
+  { key: "due", label: "Pending Loans" },
   { key: "review", label: "Under Review" },
   { key: "paid", label: "Completed" },
 ] as const;

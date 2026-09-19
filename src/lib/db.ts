@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { hashPassword, newToken } from "./auth";
 import { likePattern } from "./validation";
@@ -52,9 +52,17 @@ const TABLES: RecordType[] = [
 ];
 
 // Bump when migrate() gains new steps; each step must stay idempotent.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Wrong activation codes allowed before the code locks (the operator then
+// issues a new one). With 8 digits this keeps guessing odds negligible.
+export const ACTIVATION_MAX_ATTEMPTS = 5;
+
+function newActivationCode(): string {
+  return String(randomInt(0, 100_000_000)).padStart(8, "0");
+}
 
 function database() {
   const url =
@@ -107,6 +115,8 @@ const PRODUCTS: Product[] = [
 async function migrate(): Promise<void> {
   const db = database();
 
+  // Version the database is upgrading from (0 = fresh or pre-versioning).
+  let fromVersion = 0;
   try {
     const current = await db.query(
       "SELECT data FROM settings WHERE id = 'schema_version'",
@@ -114,7 +124,8 @@ async function migrate(): Promise<void> {
     const version = (current[0] as Row | undefined)?.data as
       | { version?: number }
       | undefined;
-    if ((version?.version ?? 0) >= SCHEMA_VERSION) return;
+    fromVersion = version?.version ?? 0;
+    if (fromVersion >= SCHEMA_VERSION) return;
   } catch {
     // settings table missing: fresh database, fall through and create it.
   }
@@ -247,17 +258,39 @@ async function migrate(): Promise<void> {
     `UPDATE customers SET data = data || jsonb_build_object('customerCode', 'CUST-' || upper(regexp_replace(id, '^cust_', '')))
      WHERE COALESCE(data->>'customerCode', '') = ''`,
   );
-  // Access links only make sense before a password exists; tokens left on
-  // active accounts would otherwise work as silent password-reset links.
-  await db.query(
-    `UPDATE customers SET data = data - 'inviteToken' - 'inviteLink' - 'inviteExpiresAt'
-     WHERE data->>'passwordSetAt' IS NOT NULL AND data ? 'inviteToken'`,
-  );
+  // v2 only: before v2 every account got a token that no page used; left on
+  // active accounts they would work as silent password-reset links. Later
+  // versions issue reset links on purpose, so this must not run again.
+  if (fromVersion < 2) {
+    await db.query(
+      `UPDATE customers SET data = data - 'inviteToken' - 'inviteLink' - 'inviteExpiresAt'
+       WHERE data->>'passwordSetAt' IS NOT NULL AND data ? 'inviteToken'`,
+    );
+  }
   await db.query(
     `UPDATE customers SET data = data || jsonb_build_object('inviteExpiresAt', $1::text)
      WHERE data ? 'inviteToken' AND NOT data ? 'inviteExpiresAt'`,
     [new Date(Date.now() + INVITE_TTL_MS).toISOString()],
   );
+
+  // v3: customer notifications are only for customer-relevant events. Remove
+  // the ones that merely echoed operator actions (account created by an
+  // operator, loan added by an operator). Self sign-up welcomes stay.
+  await db.query(
+    `DELETE FROM notifications
+     WHERE data->>'kind' = 'loan_created'
+        OR (data->>'kind' = 'account_created' AND data->>'title' = 'Your account was created')`,
+  );
+  // v3: pending access links also get an activation code for main-app setup.
+  const needCodes = await db.query(
+    "SELECT id FROM customers WHERE data ? 'inviteToken' AND NOT data ? 'activationCode'",
+  );
+  for (const row of needCodes as { id: string }[]) {
+    await db.query(
+      "UPDATE customers SET data = data || jsonb_build_object('activationCode', $2::text, 'activationAttempts', 0) WHERE id = $1",
+      [row.id, newActivationCode()],
+    );
+  }
 
   // Integrity guards. Legacy data could violate one of these; the app-level
   // checks still apply if an index can't be built, so a failure is logged.
@@ -399,10 +432,14 @@ export class DuplicateMobileError extends Error {
   }
 }
 
+// One activation credential set: the access link token and the activation
+// code are issued, expire and are burned together.
 function inviteFields() {
   const now = Date.now();
   return {
     inviteToken: newToken(),
+    activationCode: newActivationCode(),
+    activationAttempts: 0,
     inviteCreatedAt: new Date(now).toISOString(),
     inviteExpiresAt: new Date(now + INVITE_TTL_MS).toISOString(),
   };
@@ -443,6 +480,7 @@ export async function createCustomer(input: {
       passwordSalt: salt,
       status: "active",
       passwordSetAt: now,
+      passwordSetVia: "self_signup",
       activatedAt: now,
     };
   } else {
@@ -550,9 +588,11 @@ export async function completeCustomerInvite(
          'activatedAt', COALESCE(data->>'activatedAt', $4::text),
          'status', 'active',
          'inviteUsedAt', $4::text,
+         'passwordSetVia', 'invite_link',
          'lastActivityAt', $4::text,
          'lastLoginAt', $4::text,
-         'updatedAt', $4::text)) - 'inviteToken' - 'inviteExpiresAt' - 'inviteLink'
+         'updatedAt', $4::text))
+         - 'inviteToken' - 'inviteExpiresAt' - 'inviteLink' - 'activationCode' - 'activationAttempts'
        WHERE data->>'inviteToken' = $1
          AND COALESCE(data->>'status', '') <> 'inactive'
          AND (data->>'inviteExpiresAt' IS NULL OR (data->>'inviteExpiresAt')::timestamptz > now())
@@ -560,6 +600,55 @@ export async function completeCustomerInvite(
       [token, hash, salt, now],
     )
   )[0];
+}
+
+// Main-app account setup: mobile number + activation code. Atomic like the
+// access link: checks the code, the attempt limit, expiry and status, sets the
+// password and burns both the code and the link in one statement.
+export async function completeCustomerActivation(
+  mobile: string,
+  code: string,
+  password: string,
+): Promise<Customer | undefined> {
+  const { hash, salt } = hashPassword(password);
+  const now = new Date().toISOString();
+  return (
+    await rows<Customer>(
+      `UPDATE customers
+       SET data = (data || jsonb_build_object(
+         'passwordHash', $3::text,
+         'passwordSalt', $4::text,
+         'passwordSetAt', $5::text,
+         'activatedAt', COALESCE(data->>'activatedAt', $5::text),
+         'status', 'active',
+         'inviteUsedAt', $5::text,
+         'passwordSetVia', 'activation_code',
+         'lastActivityAt', $5::text,
+         'lastLoginAt', $5::text,
+         'updatedAt', $5::text))
+         - 'inviteToken' - 'inviteExpiresAt' - 'inviteLink' - 'activationCode' - 'activationAttempts'
+       WHERE data->>'mobile' = $1
+         AND data->>'activationCode' = $2
+         AND COALESCE((data->>'activationAttempts')::int, 0) < $6
+         AND COALESCE(data->>'status', '') <> 'inactive'
+         AND (data->>'inviteExpiresAt' IS NULL OR (data->>'inviteExpiresAt')::timestamptz > now())
+       RETURNING data`,
+      [mobile, code, hash, salt, now, ACTIVATION_MAX_ATTEMPTS],
+    )
+  )[0];
+}
+
+// Counts a wrong activation code against the account. Returns the new count,
+// or undefined if that mobile has no activation code outstanding.
+export async function recordFailedActivation(mobile: string): Promise<number | undefined> {
+  const result = await query(
+    `UPDATE customers SET data = data || jsonb_build_object(
+       'activationAttempts', COALESCE((data->>'activationAttempts')::int, 0) + 1)
+     WHERE data->>'mobile' = $1 AND data ? 'activationCode'
+     RETURNING (data->>'activationAttempts')::int AS attempts`,
+    [mobile],
+  );
+  return result.length ? num(result[0].attempts) : undefined;
 }
 
 export async function listCustomersAdmin(filters: {

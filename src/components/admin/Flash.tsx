@@ -3,17 +3,17 @@
 import { useEffect, useState } from "react";
 
 const MESSAGES: Record<string, string> = {
-  created: "Customer created. Share the access link below so they can set a password.",
+  created: "Customer created. Share the access link or activation code below so they can set a password.",
   saved: "Customer details saved.",
   deactivated: "Customer deactivated and signed out of all sessions.",
   reactivated: "Customer reactivated.",
   deleted: "Customer deleted.",
-  link: "New access link generated. Any previous link no longer works.",
+  link: "New access link and activation code generated. The previous ones no longer work.",
   approved: "Payment approved. The customer now sees it as successful.",
   rejected: "Payment rejected. The customer has been notified with the reason.",
   refund_started: "Refund initiated. Mark it refunded once the money is sent.",
   refunded: "Refund recorded. The customer has been notified.",
-  loan_created: "Loan created and the customer has been notified.",
+  loan_created: "Loan created. It now appears in the customer's Pending Loans.",
   loan_paid: "Loan marked as paid (no UTR). The customer has been notified.",
   loan_cancelled: "Loan cancelled. The customer has been notified with the reason.",
   kept_pending: "Kept pending — nothing changed. Your review was recorded in the activity log.",

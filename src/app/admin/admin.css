@@ -1044,6 +1044,20 @@ a.adm-card:hover {
 .adm-check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: #303840; }
 .adm-field-hint { display: block; margin-top: 5px; font-weight: 400; color: #6b7883; font-size: 11px; }
 
+.adm-share-code {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px dashed #cfe7f3;
+  border-radius: 8px;
+  background: #f6fbfe;
+  font-size: 13px;
+}
+.adm-share-code strong { font-size: 20px; letter-spacing: 2px; }
+
 /* activity timeline */
 .adm-timeline { list-style: none; margin: 0; padding: 6px 16px 10px; }
 .adm-timeline li {

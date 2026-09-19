@@ -66,7 +66,7 @@ export default async function HomePage({
 
       <section className="mloan-dues">
         <div className="mloan-section-heading simple">
-          <h2>Pending Loans / Dues</h2>
+          <h2>Pending Loans</h2>
           {orders.length > pending.length ? <Link href="/orders">All loans</Link> : null}
         </div>
         {pending.length === 0 ? (

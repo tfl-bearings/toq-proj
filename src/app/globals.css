@@ -540,3 +540,9 @@ html,body,.mloan-app-shell{touch-action:manipulation;-webkit-text-size-adjust:10
 .mloan-utr-form .mloan-proof-field input[name=utr]:user-invalid{border-color:#e5484d}
 .mloan-utr-form .mloan-alert{margin:0}
 .mloan-utr-note{font-size:11px;color:var(--mloan-muted);text-align:center;margin:0}
+.mloan-setup-link{display:block;margin:14px 0 0;padding:12px;border:1px solid #d8edf6;border-radius:10px;background:#f4fbff;color:#0c5a8f;text-align:center;font-size:13px;text-decoration:none}
+.mloan-setup-link b{color:var(--mloan-primary)}
+.mloan-setup-help{margin:14px 0 0;font-size:12px;color:var(--mloan-muted);text-align:center}
+.mloan-login-signup a{color:var(--mloan-primary);font-weight:700;text-decoration:none}
+/* The password fields have their own show/hide button; hide Edge's built-in one. */
+.mloan-login-field input::-ms-reveal,.mloan-login-field input::-ms-clear{display:none}

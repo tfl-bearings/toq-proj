@@ -19,13 +19,14 @@ import {
   getApplicationsForCustomer,
   getCustomerById,
   getOrdersForCustomer,
+  ACTIVATION_MAX_ATTEMPTS,
   getSettings,
   inviteIsUsable,
   listAuditLogs,
   listPaymentsForCustomer,
 } from "@/lib/db";
 import { dateTime, inr, shortDate } from "@/lib/format";
-import { inviteUrl } from "@/lib/links";
+import { appBaseUrl, inviteUrl } from "@/lib/links";
 import { auditLabel, paymentMethodLabel } from "@/lib/status";
 import {
   deactivateCustomerAction,
@@ -64,6 +65,8 @@ export default async function CustomerDetailPage({
 
   const linkUsable = inviteIsUsable(customer);
   const link = linkUsable && customer.inviteToken ? await inviteUrl(customer.inviteToken) : null;
+  const setupUrl = `${await appBaseUrl()}/setup`;
+  const codeLocked = (customer.activationAttempts ?? 0) >= ACTIVATION_MAX_ATTEMPTS;
   const hidden = { customerId: customer.id };
   const approvedTotal = payments
     .filter((p) => p.status === "approved")
@@ -190,25 +193,47 @@ export default async function CustomerDetailPage({
             </dd>
             <dt>Link expires</dt>
             <dd>{customer.inviteToken ? dateTime(customer.inviteExpiresAt) : "—"}</dd>
+            <dt>Activated via</dt>
+            <dd>
+              {customer.passwordSetVia === "activation_code"
+                ? "Activation code (main app)"
+                : customer.passwordSetVia === "invite_link"
+                  ? "Access link"
+                  : customer.passwordSetVia === "self_signup"
+                    ? "Self sign-up"
+                    : customer.passwordSetAt
+                      ? "—"
+                      : "Not yet"}
+            </dd>
           </dl>
           <p className="adm-note">The customer&apos;s password is hashed and is never shown here.</p>
         </div>
       </div>
 
       <div className="adm-section">
-        <h2>Access link</h2>
+        <h2>Access link &amp; activation code</h2>
         <div className="adm-pad">
           {customer.status === "inactive" ? (
             <p className="adm-muted">Reactivate the customer to issue an access link.</p>
           ) : link ? (
             <>
               <p className="adm-muted">
-                Personal single-use link for {customer.name}. It stops working once the
-                password is set, when a new link is generated, or after{" "}
-                {dateTime(customer.inviteExpiresAt)}.
+                Give {customer.name} <b>either</b> the personal link <b>or</b> the activation
+                code (they enter it with their mobile number at{" "}
+                <span className="adm-mono">{setupUrl}</span>). Both set up the same account,
+                work once, and stop working when the password is set, when you generate new
+                ones, or after {dateTime(customer.inviteExpiresAt)}.
               </p>
+              {codeLocked ? (
+                <div className="adm-error">
+                  The activation code was locked after {ACTIVATION_MAX_ATTEMPTS} incorrect
+                  attempts. The link still works; generate new ones to issue a new code.
+                </div>
+              ) : null}
               <ShareLink
                 url={link}
+                activationCode={codeLocked ? undefined : customer.activationCode}
+                setupUrl={setupUrl}
                 mobile={customer.mobile}
                 email={customer.email}
                 customerName={customer.name}

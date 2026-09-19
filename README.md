@@ -62,6 +62,8 @@ ADMIN_USERNAME=you ADMIN_PASSWORD='a-strong-password' npm start
 | Route | Page |
 |-------|------|
 | `/login` | Mobile + password sign-in / register (PWA, installable) |
+| `/setup` | **First-time setup** from the main app: mobile + 8-digit activation code + new password |
+| `/invite/[token]` | First-time setup from the personal access link |
 | `/home` | Dashboard: **Pending Loans / Dues** (product, amount, due date, Repay), latest payment status, quick actions, loan products |
 | `/loan/[id]` | Loan product detail: amount range, why-us, reviews, FAQ |
 | `/orders` | Your loans with filter tabs (Due / Under review / Completed) |

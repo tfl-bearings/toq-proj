@@ -2,20 +2,22 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { loginAction } from "@/app/actions";
+import { setupAccountAction } from "@/app/actions";
 import type { FormState } from "@/lib/form";
 import PasswordField from "./PasswordField";
 
-export default function LoginForm() {
+export default function SetupAccountForm() {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
-    loginAction,
+    setupAccountAction,
     {},
   );
 
   return (
     <form className="mloan-login-form" action={formAction}>
       {state.error ? (
-        <div className="mloan-alert mloan-alert-error">{state.error}</div>
+        <div className="mloan-alert mloan-alert-error" role="alert">
+          {state.error}
+        </div>
       ) : null}
 
       <label className="mloan-login-field mloan-mobile-field">
@@ -34,39 +36,46 @@ export default function LoginForm() {
           pattern="[6-9][0-9]{9}"
           required
         />
-        <span className="mloan-login-field-end" aria-hidden>
-          📱
+      </label>
+
+      <label className="mloan-login-field">
+        <span className="mloan-login-field-icon" aria-hidden>
+          🔑
         </span>
+        <input
+          type="text"
+          inputMode="numeric"
+          name="activationCode"
+          placeholder="8-digit activation code"
+          autoComplete="one-time-code"
+          pattern="[0-9]{8}"
+          minLength={8}
+          maxLength={8}
+          required
+          onInput={(e) => {
+            e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 8);
+          }}
+        />
       </label>
 
       <PasswordField
         name="password"
-        id="login-password"
-        placeholder="Password (minimum 8 characters)"
+        id="setup-new-password"
+        placeholder="New password (minimum 8 characters)"
+        autoComplete="new-password"
       />
       <PasswordField
         name="password_confirm"
-        id="login-password-confirm"
-        placeholder="Confirm Password"
+        id="setup-new-password-confirm"
+        placeholder="Confirm new password"
+        autoComplete="new-password"
       />
 
-      <div className="mloan-login-row">
-        <label className="mloan-remember">
-          <input type="checkbox" name="remember" value="1" defaultChecked />
-          <span>Remember Me</span>
-        </label>
-      </div>
-
       <button className="mloan-login-submit" type="submit" disabled={pending}>
-        {pending ? "Please wait…" : "Login / Register"}
+        {pending ? "Please wait…" : "Activate my account"}
       </button>
-
-      <Link href="/setup" className="mloan-setup-link">
-        First time? <b>Set up your account</b> with your activation code →
-      </Link>
-
       <p className="mloan-login-signup">
-        New here? Signing in with a new number creates your account.
+        Already set up? <Link href="/login">Sign in</Link>
       </p>
     </form>
   );

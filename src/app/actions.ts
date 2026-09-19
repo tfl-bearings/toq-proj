@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verifyPassword, newToken } from "@/lib/auth";
 import {
+  ACTIVATION_MAX_ATTEMPTS,
+  completeCustomerActivation,
   completeCustomerInvite,
   createApplication,
   createAuditLog,
@@ -20,6 +22,7 @@ import {
   getPaymentsForOrder,
   getProduct,
   getSettings,
+  recordFailedActivation,
   LoanNotPayableError,
   touchCustomer,
   updateCustomer,
@@ -75,7 +78,7 @@ export async function loginAction(
     if (!existing.passwordHash) {
       return {
         error:
-          "Your account isn't activated yet. Open the access link we sent you to set your password.",
+          "Your account isn't activated yet. Tap “Set up your account” below and use the activation code we gave you, or open your personal access link.",
       };
     }
     if (!verifyPassword(password, existing.passwordHash, existing.passwordSalt)) {
@@ -154,6 +157,66 @@ export async function setPasswordAction(
     userName: customer.name,
     customerId: customer.id,
     details: "Password set via access link; account activated",
+  });
+  await createNotification({
+    customerId: customer.id,
+    kind: "password_set",
+    title: "Account activated",
+    message: "Your password is set. Sign in with your mobile number and new password.",
+  });
+
+  const sessionToken = newToken();
+  await createSession(sessionToken, customer.id);
+  await setSessionCookie(sessionToken);
+  redirect("/home?welcome=1");
+}
+
+// --- Main-app account setup: mobile + activation code -----------------------
+
+const SETUP_FAILED =
+  "The mobile number or activation code is incorrect, or the code has expired. Check the code we gave you, or ask us for a new one.";
+
+// Activates an operator-created account from the main app. Knowing the mobile
+// number is not enough: the single-use activation code issued with the access
+// link must match, wrong codes are counted, and the code locks after
+// ACTIVATION_MAX_ATTEMPTS. Same customer record as the access link.
+export async function setupAccountAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const mobile = field(formData, "mobile").replace(/[\s-]/g, "").replace(/^(\+?91)(?=\d{10}$)/, "");
+  const code = field(formData, "activationCode").replace(/\D/g, "");
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("password_confirm") ?? "");
+
+  if (!MOBILE_RE.test(mobile)) {
+    return { error: "Enter your 10-digit mobile number." };
+  }
+  if (!/^\d{8}$/.test(code)) {
+    return { error: "Enter the 8-digit activation code we gave you." };
+  }
+  const invalid = validatePassword(password, confirm);
+  if (invalid) return { error: invalid };
+
+  const customer = await completeCustomerActivation(mobile, code, password);
+  if (!customer) {
+    const attempts = await recordFailedActivation(mobile);
+    if (attempts !== undefined && attempts >= ACTIVATION_MAX_ATTEMPTS) {
+      return {
+        error:
+          "Too many incorrect codes. For your security this code no longer works — ask us for a new one.",
+      };
+    }
+    return { error: SETUP_FAILED };
+  }
+
+  await createAuditLog({
+    action: "password_setup_completed",
+    userType: "customer",
+    userId: customer.id,
+    userName: customer.name,
+    customerId: customer.id,
+    details: "Password set with activation code on the main app; account activated",
   });
   await createNotification({
     customerId: customer.id,
