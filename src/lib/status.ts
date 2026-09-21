@@ -155,6 +155,8 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   loan_marked_paid: "Loan marked paid (no UTR)",
   loan_cancelled: "Loan cancelled",
   loan_kept_pending: "Loan kept pending",
+  loan_edited: "Loan edited",
+  loan_deleted: "Loan deleted",
   payment_kept_pending: "Payment kept pending",
   loan_application_submitted: "Loan application submitted",
   loan_application_approved: "Loan application approved",

@@ -1082,3 +1082,5 @@ a.adm-card:hover {
   .adm-review-foot .adm-actions > .adm-btn { flex: 1; justify-content: center; }
   .adm-toolbar > * { flex: 1 1 140px; }
 }
+.adm-btn-delete { background: #fff; color: #b72c23; border: 1px dashed #e0a49f; }
+.adm-btn-delete:hover { background: #fff5f4; }

@@ -102,6 +102,8 @@ export interface Order {
   createdAt: string;
   createdBy?: string; // admin id, for operator-created loans
   updatedAt?: string;
+  updatedBy?: string; // admin id of the last edit
+  updatedByName?: string;
   paidAt?: string;
   applicationId?: string; // origin application, if created from one
   // Marked paid by an operator without a customer payment/UTR.

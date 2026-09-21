@@ -416,6 +416,7 @@ export default async function CustomerDetailPage({
                         pendingPaymentId={
                           payments.find((p) => p.orderId === order.id && p.status === "pending")?.id
                         }
+                        hasPayments={payments.some((p) => p.orderId === order.id)}
                         returnTo={`/admin/customers/${customer.id}`}
                         compact
                       />

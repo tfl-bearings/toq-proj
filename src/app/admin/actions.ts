@@ -24,19 +24,29 @@ import {
   getApplication,
   getCustomerById,
   getCustomerByMobile,
+  deleteLoanIfUnused,
   getOrder,
   getPayment,
   getProduct,
+  getSettings,
   initiateRefund,
   markLoanPaid,
+  orderHasPayments,
   rejectPayment,
   rotateCustomerInvite,
   setUpiQrImage,
   updateApplication,
+  updateLoanDetails,
   updateCustomer,
   updateSettings,
 } from "@/lib/db";
-import { addMonthsIso, dueDateFromDay, todayIst, totalRepayable } from "@/lib/loan";
+import {
+  addMonthsIso,
+  dueDateFromDay,
+  repaymentUpi,
+  todayIst,
+  totalRepayable,
+} from "@/lib/loan";
 import {
   ADMIN_SESSION_COOKIE,
   clearAdminSessionCookie,
@@ -690,30 +700,175 @@ export async function cancelLoanAction(
   redirect(withNotice(returnTo(formData, "/admin/orders"), "loan_cancelled"));
 }
 
-// Leaves an open loan exactly as it is; the review is recorded in the audit log.
-export async function keepLoanPendingAction(
+// Edits an existing loan in place. The loan id, customer, payment history and
+// audit trail stay exactly as they are; only these four fields change, and the
+// customer app reads them live on its next load.
+export async function editLoanAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const admin = await requireAdmin();
   const orderId = field(formData, "orderId");
-  const note = field(formData, "note").slice(0, 300);
+  const productName = field(formData, "productName").replace(/\s+/g, " ");
+  const amountRaw = field(formData, "amount");
+  const dueDay = field(formData, "dueDate");
+  const upiId = field(formData, "upiId");
+
   const order = await getOrder(orderId);
   if (!order) return { error: "Loan not found." };
   if (order.status === "paid" || order.status === "cancelled") {
-    return { error: `This loan is already ${order.status}.` };
+    return { error: `This loan is ${order.status} and can no longer be edited.` };
+  }
+  if (order.status === "review") {
+    return {
+      error:
+        "A payment for this loan is under review. Approve or reject that payment first, then edit the loan.",
+    };
+  }
+  if (productName.length < 2 || productName.length > 60) {
+    return { error: "Enter a product name (2–60 characters)." };
+  }
+  const amount = Number(amountRaw);
+  if (!/^\d+$/.test(amountRaw) || !Number.isSafeInteger(amount) || amount < 1 || amount > 10_000_000) {
+    return { error: "Enter the loan amount in whole rupees (₹1 – ₹1,00,00,000)." };
+  }
+  const paid = order.amountPaid ?? 0;
+  if (amount < paid) {
+    return { error: `This loan already has ${inr(paid)} approved, so the amount can't be lower than that.` };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDay) || Number.isNaN(Date.parse(dueDay))) {
+    return { error: "Select a valid due date." };
+  }
+  const createdDay = order.createdAt.slice(0, 10);
+  if (dueDay < createdDay) {
+    return { error: "The due date can't be before the loan was created." };
+  }
+  if (Date.parse(dueDay) - Date.parse(todayIst()) > 5 * 366 * 24 * 60 * 60 * 1000) {
+    return { error: "The due date must be within the next 5 years." };
+  }
+  if (upiId && !UPI_RE.test(upiId)) {
+    return { error: "Enter a valid UPI ID like name@bank, or leave it blank to use Settings." };
+  }
+
+  const updated = await updateLoanDetails({
+    orderId,
+    productName,
+    amount,
+    dueDate: dueDateFromDay(dueDay),
+    upiId,
+    reviewer: admin,
+  });
+  if (!updated) {
+    return {
+      error:
+        "This loan changed while you were editing (a payment may have arrived, or it was closed). Refresh and try again.",
+    };
+  }
+
+  const settings = await getSettings();
+  const before = repaymentUpi(order, settings).upiId;
+  const after = repaymentUpi(updated, settings).upiId;
+  const changes = [
+    order.productName !== productName ? `product: “${order.productName}” → “${productName}”` : "",
+    order.principal !== amount ? `amount: ${inr(order.principal)} → ${inr(amount)}` : "",
+    order.dueDate !== updated.dueDate ? `due date: ${shortDate(order.dueDate)} → ${shortDate(updated.dueDate)}` : "",
+    before !== after ? `UPI: ${before} → ${after}` : "",
+  ].filter(Boolean);
+  if (changes.length > 0) {
+    await createAuditLog({
+      action: "loan_edited",
+      userType: "admin",
+      userId: admin.id,
+      userName: admin.name,
+      customerId: order.customerId,
+      orderId,
+      details: changes.join("; "),
+    });
+  }
+
+  revalidateAdmin();
+  revalidatePath("/home");
+  revalidatePath("/orders");
+  revalidatePath(`/repay/${orderId}`);
+  redirect(withNotice(returnTo(formData, `/admin/orders/${orderId}`), "loan_updated"));
+}
+
+// Deletes a loan created by mistake. A loan with no payment records is removed
+// completely; one that already has payments is cancelled instead, so no
+// financial record or audit trail is destroyed.
+export async function deleteLoanAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const orderId = field(formData, "orderId");
+  const order = await getOrder(orderId);
+  if (!order) return { error: "Loan not found." };
+  if (order.status === "paid") {
+    return { error: "A paid loan is a financial record and can't be deleted." };
+  }
+  if (order.status === "review") {
+    return {
+      error:
+        "A payment for this loan is under review. Approve or reject that payment first.",
+    };
+  }
+
+  const hadPayments = await orderHasPayments(orderId);
+  const details = `${order.productName} · ${inr(order.principal)} · due ${shortDate(order.dueDate)}`;
+
+  if (!hadPayments) {
+    if (!(await deleteLoanIfUnused(orderId))) {
+      return { error: "This loan now has payments, so it can't be deleted. Cancel it instead." };
+    }
+    await createAuditLog({
+      action: "loan_deleted",
+      userType: "admin",
+      userId: admin.id,
+      userName: admin.name,
+      customerId: order.customerId,
+      orderId,
+      details: `Deleted ${details} (no payments)`,
+    });
+    revalidateAdmin();
+    revalidatePath("/home");
+    revalidatePath("/orders");
+    redirect(withNotice(returnTo(formData, "/admin/orders"), "loan_deleted"));
+  }
+
+  // Keeps the payment history: close it instead of destroying it.
+  if (order.status !== "cancelled") {
+    const cancelled = await cancelLoan({
+      orderId,
+      reviewer: admin,
+      reason: "Loan cancelled",
+      note: "Deleted by operator; kept for payment history",
+    });
+    if (!cancelled) {
+      return { error: "This loan changed just now. Refresh and try again." };
+    }
   }
   await createAuditLog({
-    action: "loan_kept_pending",
+    action: "loan_deleted",
     userType: "admin",
     userId: admin.id,
     userName: admin.name,
     customerId: order.customerId,
     orderId,
-    details: `${order.productName} · ${inr(order.amountDue)} left ${order.status === "review" ? "with payment under review" : "awaiting payment"}${note ? ` · ${note}` : ""}`,
+    details: `Cancelled instead of deleted (has payment history): ${details}`,
   });
+  await createNotification({
+    customerId: order.customerId,
+    kind: "loan_cancelled",
+    title: "Loan cancelled",
+    message: `Your ${order.productName} loan of ${inr(order.amountDue)} was cancelled. No payment is needed.`,
+    orderId,
+  });
+
   revalidateAdmin();
-  redirect(withNotice(returnTo(formData, "/admin/orders"), "kept_pending"));
+  revalidatePath("/home");
+  revalidatePath("/orders");
+  redirect(withNotice(returnTo(formData, "/admin/orders"), "loan_cancelled_instead"));
 }
 
 // --- Loan origination --------------------------------------------------------

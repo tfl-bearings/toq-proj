@@ -896,6 +896,76 @@ export async function markLoanPaid(input: {
   )[0];
 }
 
+// Edits an existing loan in place (same loan id, same customer, payments and
+// history untouched). Only a loan still awaiting payment, with no payment under
+// review, can be edited — so approved/cancelled financial records can't be
+// rewritten. amountDue keeps whatever has already been approved in account.
+export async function updateLoanDetails(input: {
+  orderId: string;
+  productName: string;
+  amount: number;
+  dueDate: string;
+  upiId: string;
+  reviewer: Reviewer;
+}): Promise<Order | undefined> {
+  const now = new Date().toISOString();
+  return (
+    await rows<Order>(
+      `UPDATE orders o SET data = o.data || jsonb_build_object(
+         'productName', $2::text,
+         'principal', $3::numeric,
+         'amountDue', GREATEST(0, $3::numeric - COALESCE((o.data->>'amountPaid')::numeric, 0)),
+         'dueDate', $4::text,
+         'upiId', $5::text,
+         'updatedAt', $6::text,
+         'updatedBy', $7::text,
+         'updatedByName', $8::text)
+       WHERE o.id = $1 AND o.data->>'status' IN ('due', 'overdue')
+         AND COALESCE((o.data->>'amountPaid')::numeric, 0) <= $3::numeric
+         AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.data->>'orderId' = o.id AND p.data->>'status' = 'pending')
+       RETURNING o.data`,
+      [
+        input.orderId,
+        input.productName,
+        input.amount,
+        input.dueDate,
+        input.upiId,
+        now,
+        input.reviewer.id,
+        input.reviewer.name,
+      ],
+    )
+  )[0];
+}
+
+// Permanently removes a loan that has no payment records, together with the
+// notifications that point at it. Loans with payments are never hard-deleted
+// (see cancelLoan) so financial history survives.
+export async function deleteLoanIfUnused(orderId: string): Promise<boolean> {
+  const results = await (await readyDatabase()).transaction((txn) => [
+    txn.query(
+      `DELETE FROM orders WHERE id = $1
+         AND data->>'status' <> 'paid'
+         AND NOT EXISTS (SELECT 1 FROM payments WHERE data->>'orderId' = $1)
+       RETURNING id`,
+      [orderId],
+    ),
+    txn.query(
+      "DELETE FROM notifications WHERE data->>'orderId' = $1 AND NOT EXISTS (SELECT 1 FROM orders WHERE id = $1)",
+      [orderId],
+    ),
+  ]);
+  return (results[0] as unknown[]).length > 0;
+}
+
+export async function orderHasPayments(orderId: string): Promise<boolean> {
+  const [row] = await query(
+    "SELECT EXISTS (SELECT 1 FROM payments WHERE data->>'orderId' = $1) AS has",
+    [orderId],
+  );
+  return Boolean(row?.has);
+}
+
 // Cancels a loan awaiting payment. Same guards as markLoanPaid.
 export async function cancelLoan(input: {
   orderId: string;

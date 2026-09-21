@@ -3,11 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import AdminShell from "@/components/AdminShell";
 import Flash from "@/components/admin/Flash";
 import LoanActions from "@/components/admin/LoanActions";
+import LoanEditForm from "@/components/admin/LoanEditForm";
 import { LoanBadge, PaymentBadge } from "@/components/admin/Badges";
 import { getCurrentAdmin } from "@/lib/session";
 import { getOrderRow, getPaymentsForOrder, getSettings, listAuditLogs } from "@/lib/db";
 import { dateTime, inr, shortDate } from "@/lib/format";
-import { repaymentUpi } from "@/lib/loan";
+import { dueDay, isAwaitingPayment, repaymentUpi } from "@/lib/loan";
 import { auditLabel } from "@/lib/status";
 
 // One loan: its state, how it was closed, every payment attempt and its audit
@@ -55,6 +56,7 @@ export default async function LoanDetailPage({
         <LoanActions
           order={order}
           pendingPaymentId={order.pendingPaymentId}
+          hasPayments={payments.length > 0}
           returnTo={`/admin/orders/${order.id}`}
         />
       </div>
@@ -85,7 +87,10 @@ export default async function LoanDetailPage({
             <dt>Created</dt>
             <dd>{dateTime(order.createdAt)}</dd>
             <dt>Last updated</dt>
-            <dd>{dateTime(order.updatedAt ?? order.createdAt)}</dd>
+            <dd>
+              {dateTime(order.updatedAt ?? order.createdAt)}
+              {order.updatedByName ? " by " + order.updatedByName : ""}
+            </dd>
           </dl>
         </div>
 
@@ -140,6 +145,27 @@ export default async function LoanDetailPage({
             ) : null}
           </dl>
         </div>
+      </div>
+
+      <div className="adm-section" id="edit">
+        <h2>Edit loan</h2>
+        {isAwaitingPayment(order) ? (
+          <LoanEditForm
+            orderId={order.id}
+            productName={order.productName}
+            amount={order.principal}
+            dueDay={dueDay(order.dueDate)}
+            upiId={order.upiId}
+            settingsUpiId={settings.upiId}
+            returnTo={`/admin/orders/${order.id}`}
+          />
+        ) : (
+          <div className="adm-empty">
+            {order.status === "review"
+              ? "A payment is under review. Approve or reject it first, then the loan can be edited."
+              : `This loan is ${order.status} and can no longer be edited. Its payment history stays intact.`}
+          </div>
+        )}
       </div>
 
       <div className="adm-section">

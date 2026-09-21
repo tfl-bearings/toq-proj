@@ -48,7 +48,7 @@ export default async function AdminOrdersPage({
           <h1>Loans</h1>
           <p className="adm-lead">
             Every loan appears here as soon as it&apos;s created. Loans awaiting payment
-            can be marked paid, cancelled or kept pending — no customer UTR needed.
+            can be edited, marked paid, cancelled or deleted — no customer UTR needed.
           </p>
         </div>
         <Link href="/admin/loans/new" className="adm-btn adm-btn-primary">
@@ -158,6 +158,7 @@ export default async function AdminOrdersPage({
                       <LoanActions
                         order={o}
                         pendingPaymentId={o.pendingPaymentId}
+                        hasPayments={o.paymentCount > 0}
                         returnTo={returnTo}
                         compact
                       />

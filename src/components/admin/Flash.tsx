@@ -16,6 +16,10 @@ const MESSAGES: Record<string, string> = {
   loan_created: "Loan created. It now appears in the customer's Pending Loans.",
   loan_paid: "Loan marked as paid (no UTR). The customer has been notified.",
   loan_cancelled: "Loan cancelled. The customer has been notified with the reason.",
+  loan_updated: "Loan updated. The customer sees the new details next time their app loads.",
+  loan_deleted: "Loan deleted. The customer, their login and their other loans are unaffected.",
+  loan_cancelled_instead:
+    "This loan had payment records, so it was cancelled and kept for history instead of deleted.",
   kept_pending: "Kept pending — nothing changed. Your review was recorded in the activity log.",
 };
 
