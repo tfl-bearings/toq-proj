@@ -9,36 +9,20 @@ export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 128;
 
-export const PAYMENT_METHODS = ["UPI", "Bank transfer", "Cash"] as const;
-
 export function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
 
+// UPI and payment details live on each loan, not on the customer.
 export function validateCustomerFields(input: {
   name: string;
   mobile: string;
-  email: string;
-  upiId: string;
-  paymentMethod: string;
 }): string | null {
   if (input.name.length < 2 || input.name.length > 80) {
     return "Enter the customer's name (2–80 characters).";
   }
   if (!MOBILE_RE.test(input.mobile)) {
     return "Enter a valid 10-digit Indian mobile number (starts with 6–9).";
-  }
-  if (input.email && !EMAIL_RE.test(input.email)) {
-    return "Enter a valid email address or leave it blank.";
-  }
-  if (!(PAYMENT_METHODS as readonly string[]).includes(input.paymentMethod)) {
-    return "Choose a payment method.";
-  }
-  if (input.upiId && !UPI_RE.test(input.upiId)) {
-    return "Enter a valid UPI ID like name@bank, or leave it blank.";
-  }
-  if (input.paymentMethod === "UPI" && !input.upiId) {
-    return "Enter the customer's UPI ID for the UPI payment method.";
   }
   return null;
 }

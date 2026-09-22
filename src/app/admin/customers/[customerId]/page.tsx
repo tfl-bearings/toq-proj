@@ -146,12 +146,21 @@ export default async function CustomerDetailPage({
             </dd>
             <dt>Mobile</dt>
             <dd className="adm-mono">+91 {customer.mobile}</dd>
-            <dt>Email</dt>
-            <dd>{customer.email || "—"}</dd>
-            <dt>Payment method</dt>
-            <dd>{customer.paymentMethod ?? "UPI"}</dd>
-            <dt>UPI ID</dt>
-            <dd className="adm-mono">{customer.upiId || "—"}</dd>
+{customer.email ? (
+              <>
+                <dt>Email</dt>
+                <dd>{customer.email}</dd>
+              </>
+            ) : null}
+            {customer.upiId ? (
+              <>
+                <dt>UPI ID (legacy)</dt>
+                <dd className="adm-mono">
+                  {customer.upiId}
+                  <div className="adm-micro">Repayment UPI is set per loan.</div>
+                </dd>
+              </>
+            ) : null}
             <dt>Created</dt>
             <dd>
               {dateTime(customer.createdAt)}
@@ -279,13 +288,7 @@ export default async function CustomerDetailPage({
         <CustomerForm
           action={updateCustomerAdminAction}
           customerId={customer.id}
-          initial={{
-            name: customer.name,
-            mobile: customer.mobile,
-            email: customer.email ?? "",
-            upiId: customer.upiId ?? "",
-            paymentMethod: customer.paymentMethod ?? "UPI",
-          }}
+          initial={{ name: customer.name, mobile: customer.mobile }}
           submitLabel="Save changes"
         />
       </div>

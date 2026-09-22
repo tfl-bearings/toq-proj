@@ -1,19 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import type { FormState } from "@/lib/form";
-import { PAYMENT_METHODS } from "@/lib/validation";
 
 type Values = {
   name: string;
   mobile: string;
-  email: string;
-  upiId: string;
-  paymentMethod: string;
 };
 
-// Create / edit customer form. Validation runs on the server; the browser
-// constraints below are only a convenience.
+// Create / edit customer. A customer record only needs a name and the mobile
+// number they sign in with; UPI and payment details belong to each loan.
 export default function CustomerForm({
   action,
   customerId,
@@ -26,7 +22,6 @@ export default function CustomerForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
-  const [method, setMethod] = useState(initial?.paymentMethod ?? "UPI");
 
   return (
     <form action={formAction}>
@@ -60,35 +55,7 @@ export default function CustomerForm({
             maxLength={16}
             autoComplete="off"
           />
-        </label>
-        <label className="adm-field">
-          Email (optional)
-          <input name="email" type="email" defaultValue={initial?.email} maxLength={120} />
-        </label>
-        <label className="adm-field">
-          Payment method
-          <select
-            name="paymentMethod"
-            value={method}
-            onChange={(e) => setMethod(e.target.value)}
-          >
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="adm-field">
-          UPI ID {method === "UPI" ? "" : "(optional)"}
-          <input
-            name="upiId"
-            defaultValue={initial?.upiId}
-            required={method === "UPI"}
-            placeholder="name@bank"
-            maxLength={120}
-            autoComplete="off"
-          />
+          <small className="adm-field-hint">The number the customer signs in with.</small>
         </label>
       </div>
       <div className="adm-form-foot">

@@ -135,9 +135,6 @@ function readCustomerFields(formData: FormData) {
   return {
     name: field(formData, "name"),
     mobile: normalizeMobile(field(formData, "mobile")),
-    email: field(formData, "email").toLowerCase(),
-    upiId: field(formData, "upiId"),
-    paymentMethod: field(formData, "paymentMethod") || "UPI",
   };
 }
 

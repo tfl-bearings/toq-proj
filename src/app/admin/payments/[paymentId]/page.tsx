@@ -167,8 +167,6 @@ export default async function PaymentDetailPage({
               <dd className="adm-mono">{customer.customerCode ?? customer.id}</dd>
               <dt>Mobile</dt>
               <dd className="adm-mono">+91 {customer.mobile}</dd>
-              <dt>Customer UPI</dt>
-              <dd className="adm-mono">{customer.upiId || "—"}</dd>
               <dt>Loan</dt>
               <dd>
                 {order

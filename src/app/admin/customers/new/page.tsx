@@ -16,8 +16,9 @@ export default async function NewCustomerPage() {
       </Link>
       <h1>New customer</h1>
       <p className="adm-lead">
-        Creates the customer&apos;s account and a personal, single-use access link. The
-        customer opens the link to choose their own password — you never see or set it.
+        Creates the customer&apos;s account with an activation code and a personal
+        access link. The customer sets their own password with either one — you never
+        see or set it. Loan and UPI details are added when you create a loan.
       </p>
       <div className="adm-section">
         <h2>Customer details</h2>
