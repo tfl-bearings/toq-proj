@@ -21,6 +21,7 @@ import {
   getOrdersForCustomer,
   ACTIVATION_MAX_ATTEMPTS,
   getSettings,
+  inviteIsLocked,
   inviteIsUsable,
   listAuditLogs,
   listPaymentsForCustomer,
@@ -67,6 +68,7 @@ export default async function CustomerDetailPage({
   const link = linkUsable && customer.inviteToken ? await inviteUrl(customer.inviteToken) : null;
   const setupUrl = `${await appBaseUrl()}/setup`;
   const codeLocked = (customer.activationAttempts ?? 0) >= ACTIVATION_MAX_ATTEMPTS;
+  const linkLocked = Boolean(customer.inviteToken) && inviteIsLocked(customer);
   const hidden = { customerId: customer.id };
   const approvedTotal = payments
     .filter((p) => p.status === "approved")
@@ -236,7 +238,8 @@ export default async function CustomerDetailPage({
               {codeLocked ? (
                 <div className="adm-error">
                   The activation code was locked after {ACTIVATION_MAX_ATTEMPTS} incorrect
-                  attempts. The link still works; generate new ones to issue a new code.
+                  attempts. The access link still works; generate new ones to issue a new
+                  code.
                 </div>
               ) : null}
               <ShareLink
@@ -249,6 +252,11 @@ export default async function CustomerDetailPage({
                 appName={settings.appName}
               />
             </>
+          ) : linkLocked ? (
+            <p className="adm-muted">
+              The access link was locked after {ACTIVATION_MAX_ATTEMPTS} incorrect mobile
+              numbers were entered on it. Generate a new link and code to share.
+            </p>
           ) : customer.inviteToken ? (
             <p className="adm-muted">The previous link expired. Generate a new one to share.</p>
           ) : customer.passwordSetAt ? (

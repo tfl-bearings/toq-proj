@@ -23,6 +23,7 @@ import {
   getProduct,
   getSettings,
   recordFailedActivation,
+  recordFailedInvite,
   LoanNotPayableError,
   touchCustomer,
   updateCustomer,
@@ -130,23 +131,38 @@ export async function logoutAction(): Promise<void> {
 
 // --- Access link: password setup --------------------------------------------
 
+// Opening an access link proves nothing on its own: the customer must also
+// enter the mobile number the account is registered to, and then sign in
+// normally. Opening the link never signs anybody in.
 export async function setPasswordAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const token = field(formData, "token");
+  const mobile = normalizeMobile(field(formData, "mobile"));
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("password_confirm") ?? "");
 
+  if (!MOBILE_RE.test(mobile)) {
+    return { error: "Enter your registered 10-digit mobile number." };
+  }
   const invalid = validatePassword(password, confirm);
   if (invalid) return { error: invalid };
 
-  // Atomic: validates the link, sets the password and burns the link.
-  const customer = await completeCustomerInvite(token, password);
+  // Atomic: checks the link and the mobile number, sets the password and
+  // burns the link.
+  const customer = await completeCustomerInvite(token, mobile, password);
   if (!customer) {
+    const attempts = await recordFailedInvite(token);
+    if (attempts !== undefined && attempts >= ACTIVATION_MAX_ATTEMPTS) {
+      return {
+        error:
+          "Too many incorrect attempts. For your security this link no longer works — ask us for a new one.",
+      };
+    }
     return {
       error:
-        "This link is invalid, has expired or was already used. Ask us for a new link.",
+        "That mobile number doesn't match this link, or the link has expired or was already used. Check the number, or ask us for a new link.",
     };
   }
 
@@ -165,13 +181,21 @@ export async function setPasswordAction(
     message: "Your password is set. Sign in with your mobile number and new password.",
   });
 
-  const sessionToken = newToken();
-  await createSession(sessionToken, customer.id);
-  await setSessionCookie(sessionToken);
-  redirect("/home?welcome=1");
+  // No session here: the customer signs in with mobile + password. Any session
+  // already on this device (a shared phone) is cleared so the login page can
+  // not bounce them into someone else’s account.
+  await clearSessionCookie();
+  redirect("/login?activated=1");
 }
 
 // --- Main-app account setup: mobile + activation code -----------------------
+
+// Accepts "98765 43210", "+91 98765-43210" etc.; compares the bare 10 digits.
+function normalizeMobile(raw: string): string {
+  const compact = raw.replace(/[\s-]/g, "");
+  const match = compact.match(/^(?:\+?91)?([0-9]{10})$/);
+  return match ? match[1] : compact;
+}
 
 const SETUP_FAILED =
   "The mobile number or activation code is incorrect, or the code has expired. Check the code we gave you, or ask us for a new one.";
@@ -184,7 +208,7 @@ export async function setupAccountAction(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const mobile = field(formData, "mobile").replace(/[\s-]/g, "").replace(/^(\+?91)(?=\d{10}$)/, "");
+  const mobile = normalizeMobile(field(formData, "mobile"));
   const code = field(formData, "activationCode").replace(/\D/g, "");
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("password_confirm") ?? "");
@@ -225,10 +249,9 @@ export async function setupAccountAction(
     message: "Your password is set. Sign in with your mobile number and new password.",
   });
 
-  const sessionToken = newToken();
-  await createSession(sessionToken, customer.id);
-  await setSessionCookie(sessionToken);
-  redirect("/home?welcome=1");
+  // No session here either: setting a password is not signing in.
+  await clearSessionCookie();
+  redirect("/login?activated=1");
 }
 
 // --- Profile -----------------------------------------------------------------

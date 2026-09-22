@@ -7,10 +7,10 @@ import InstallButton from "@/components/InstallButton";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string }>;
+  searchParams: Promise<{ invite?: string; activated?: string }>;
 }) {
   // Access links were once issued as /login?invite=<token>.
-  const { invite } = await searchParams;
+  const { invite, activated } = await searchParams;
   if (invite) redirect(`/invite/${encodeURIComponent(invite)}`);
 
   const customer = await getCurrentCustomer();
@@ -35,6 +35,11 @@ export default async function LoginPage({
             </div>
 
             <div className="mloan-login-body">
+              {activated ? (
+                <div className="mloan-alert success" role="status">
+                  Password set. Sign in with your mobile number and your new password.
+                </div>
+              ) : null}
               <h2>Welcome Back!</h2>
               <p className="mloan-login-subtitle">
                 Securely sign in with your registered mobile number.

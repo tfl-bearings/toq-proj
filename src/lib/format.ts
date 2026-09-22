@@ -35,8 +35,3 @@ export function dateTime(iso: string | undefined): string {
     timeZone: "Asia/Kolkata",
   });
 }
-
-// Masks all but the last four digits of a mobile number.
-export function maskMobile(mobile: string): string {
-  return `${"•".repeat(Math.max(0, mobile.length - 4))}${mobile.slice(-4)}`;
-}

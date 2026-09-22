@@ -440,6 +440,7 @@ function inviteFields() {
     inviteToken: newToken(),
     activationCode: newActivationCode(),
     activationAttempts: 0,
+    inviteAttempts: 0,
     inviteCreatedAt: new Date(now).toISOString(),
     inviteExpiresAt: new Date(now + INVITE_TTL_MS).toISOString(),
   };
@@ -564,16 +565,25 @@ export async function markInviteOpened(id: string): Promise<boolean> {
   return updated.length > 0;
 }
 
+// A link is usable until it is used, expires, the account is deactivated, or
+// too many wrong mobile numbers lock it.
 export function inviteIsUsable(customer: Customer): boolean {
   if (!customer.inviteToken || customer.status === "inactive") return false;
+  if (inviteIsLocked(customer)) return false;
   if (!customer.inviteExpiresAt) return true;
   return new Date(customer.inviteExpiresAt).getTime() > Date.now();
 }
 
+export function inviteIsLocked(customer: Pick<Customer, "inviteAttempts">): boolean {
+  return (customer.inviteAttempts ?? 0) >= ACTIVATION_MAX_ATTEMPTS;
+}
+
 // Consumes an access link and sets the password in one atomic statement, so a
-// link can never be used twice.
+// link can never be used twice. The customer must also enter the mobile number
+// the account is registered to, so a leaked link alone can't activate it.
 export async function completeCustomerInvite(
   token: string,
+  mobile: string,
   password: string,
 ): Promise<Customer | undefined> {
   const { hash, salt } = hashPassword(password);
@@ -590,16 +600,31 @@ export async function completeCustomerInvite(
          'inviteUsedAt', $4::text,
          'passwordSetVia', 'invite_link',
          'lastActivityAt', $4::text,
-         'lastLoginAt', $4::text,
          'updatedAt', $4::text))
-         - 'inviteToken' - 'inviteExpiresAt' - 'inviteLink' - 'activationCode' - 'activationAttempts'
+         - 'inviteToken' - 'inviteExpiresAt' - 'inviteLink' - 'activationCode'
+         - 'activationAttempts' - 'inviteAttempts'
        WHERE data->>'inviteToken' = $1
+         AND data->>'mobile' = $5
+         AND COALESCE((data->>'inviteAttempts')::int, 0) < $6
          AND COALESCE(data->>'status', '') <> 'inactive'
          AND (data->>'inviteExpiresAt' IS NULL OR (data->>'inviteExpiresAt')::timestamptz > now())
        RETURNING data`,
-      [token, hash, salt, now],
+      [token, hash, salt, now, mobile, ACTIVATION_MAX_ATTEMPTS],
     )
   )[0];
+}
+
+// Counts a wrong mobile number against the link only. The activation code has
+// its own budget, so one credential can never lock the other.
+export async function recordFailedInvite(token: string): Promise<number | undefined> {
+  const result = await query(
+    `UPDATE customers SET data = data || jsonb_build_object(
+       'inviteAttempts', COALESCE((data->>'inviteAttempts')::int, 0) + 1)
+     WHERE data->>'inviteToken' = $1
+     RETURNING (data->>'inviteAttempts')::int AS attempts`,
+    [token],
+  );
+  return result.length ? num(result[0].attempts) : undefined;
 }
 
 // Main-app account setup: mobile number + activation code. Atomic like the
@@ -624,9 +649,9 @@ export async function completeCustomerActivation(
          'inviteUsedAt', $5::text,
          'passwordSetVia', 'activation_code',
          'lastActivityAt', $5::text,
-         'lastLoginAt', $5::text,
          'updatedAt', $5::text))
-         - 'inviteToken' - 'inviteExpiresAt' - 'inviteLink' - 'activationCode' - 'activationAttempts'
+         - 'inviteToken' - 'inviteExpiresAt' - 'inviteLink' - 'activationCode'
+         - 'activationAttempts' - 'inviteAttempts'
        WHERE data->>'mobile' = $1
          AND data->>'activationCode' = $2
          AND COALESCE((data->>'activationAttempts')::int, 0) < $6

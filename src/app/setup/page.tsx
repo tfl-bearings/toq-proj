@@ -32,7 +32,8 @@ export default async function SetupPage() {
               <h2>First-time setup</h2>
               <p className="mloan-login-subtitle">
                 Enter your registered mobile number and the 8-digit activation code we
-                gave you, then choose your password.
+                gave you, then choose your password. You&apos;ll then sign in with your
+                mobile number and password.
               </p>
               <SetupAccountForm />
               <p className="mloan-setup-help">

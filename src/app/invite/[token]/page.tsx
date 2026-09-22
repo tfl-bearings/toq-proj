@@ -8,16 +8,16 @@ import {
   inviteIsUsable,
   markInviteOpened,
 } from "@/lib/db";
-import { maskMobile } from "@/lib/format";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
 
-// Personal access link: the customer chooses their own password here. The
-// token is single-use and expires; it only ever reveals the first name and a
-// masked mobile number of the customer it belongs to.
+// Personal access link: the customer sets their own password here. The token is
+// single-use and expires, and the page reveals nothing about the account — the
+// customer must also enter the mobile number it is registered to. Opening the
+// link never signs anyone in.
 export default async function InvitePage({
   params,
 }: {
@@ -41,8 +41,6 @@ export default async function InvitePage({
     });
   }
 
-  const firstName = customer?.name.split(" ")[0] ?? "";
-
   return (
     <div className="mloan-login-page">
       <div className="mloan-app-shell">
@@ -62,10 +60,10 @@ export default async function InvitePage({
             <div className="mloan-login-body">
               {customer && usable ? (
                 <>
-                  <h2>Hi {firstName}!</h2>
+                  <h2>Set your password</h2>
                   <p className="mloan-login-subtitle">
-                    Choose a password for your account (+91 {maskMobile(customer.mobile)}).
-                    You&apos;ll sign in with your mobile number and this password.
+                    Enter the mobile number your account is registered to and choose a
+                    password. You&apos;ll then sign in with that number and password.
                   </p>
                   <SetPasswordForm token={token} />
                 </>

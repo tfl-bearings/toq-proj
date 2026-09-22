@@ -72,7 +72,7 @@ export default function SetupAccountForm() {
       />
 
       <button className="mloan-login-submit" type="submit" disabled={pending}>
-        {pending ? "Please wait…" : "Activate my account"}
+        {pending ? "Please wait…" : "Set password"}
       </button>
       <p className="mloan-login-signup">
         Already set up? <Link href="/login">Sign in</Link>

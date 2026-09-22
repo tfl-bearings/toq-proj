@@ -50,6 +50,7 @@ export interface Customer {
   // expired and burned together with inviteToken.
   activationCode?: string;
   activationAttempts?: number; // wrong codes entered; locked at the limit
+  inviteAttempts?: number; // wrong mobile numbers entered on the link
   passwordSetAt?: string;
   passwordSetVia?: "invite_link" | "activation_code" | "self_signup";
   activatedAt?: string;
