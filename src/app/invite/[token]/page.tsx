@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import InstallButton from "@/components/InstallButton";
 import SetPasswordForm from "@/components/SetPasswordForm";
 import {
   createAuditLog,
@@ -46,14 +47,17 @@ export default async function InvitePage({
       <div className="mloan-app-shell">
         <main className="mloan-main mloan-login-main">
           <section className="mloan-login-screen">
+            {/* Same branding as the login screen, so a customer opening the
+                link from WhatsApp recognises where they've landed. */}
             <div className="mloan-login-hero">
               <div className="mloan-login-actions">
+                <InstallButton className="mloan-install-btn mloan-install-btn-login" />
                 <div className="mloan-login-avatar" aria-hidden>
-                  🔐
+                  💳
                 </div>
               </div>
               <h1>{appName}</h1>
-              <p>Set up your account</p>
+              <p>Your Trusted Lending Partner</p>
               <div className="mloan-login-wave" aria-hidden />
             </div>
 
@@ -63,7 +67,7 @@ export default async function InvitePage({
                   <h2>Set your password</h2>
                   <p className="mloan-login-subtitle">
                     Enter the mobile number your account is registered to and choose a
-                    password. You&apos;ll then sign in with that number and password.
+                    password. You&apos;ll go straight to your account.
                   </p>
                   <SetPasswordForm token={token} />
                 </>
