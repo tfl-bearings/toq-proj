@@ -62,8 +62,7 @@ ADMIN_USERNAME=you ADMIN_PASSWORD='a-strong-password' npm start
 | Route | Page |
 |-------|------|
 | `/login` | Mobile + password sign-in / register (PWA, installable) |
-| `/setup` | **First-time setup** from the main app: mobile + 8-digit activation code + new password |
-| `/invite/[token]` | First-time setup from the personal access link |
+| `/invite/[token]` | **First-time setup** from the personal access link: registered mobile + new password, then straight into the app |
 | `/home` | Dashboard: **Pending Loans / Dues** (product, amount, due date, Repay), latest payment status, quick actions, loan products |
 | `/loan/[id]` | Loan product detail: amount range, why-us, reviews, FAQ |
 | `/orders` | Your loans with filter tabs (Due / Under review / Completed) |
@@ -86,7 +85,7 @@ ADMIN_USERNAME=you ADMIN_PASSWORD='a-strong-password' npm start
 | `/admin/orders/[id]` | Loan detail: closure info, every payment attempt, audit trail |
 | `/admin/customers` | Customers with search / filters / pagination, account + password status, last payment |
 | `/admin/customers/new` | **Create a customer** — issues a personal single-use access link |
-| `/admin/customers/[id]` | Profile, password & activation timestamps, access link (copy / WhatsApp / SMS / email / regenerate), edit, deactivate / reactivate / delete, payment history, loans, activity |
+| `/admin/customers/[id]` | Profile, password & activation timestamps, access link (copy / WhatsApp / SMS / email / regenerate; locks after 5 wrong mobile numbers), edit, deactivate / reactivate / delete, payment history, loans, activity |
 | `/admin/activity` | Audit log of operator and customer actions, filterable |
 | `/admin/settings` | **App name + theme color**, collection **UPI ID** / payee, optional uploaded **UPI QR image**, support contact — all applied live |
 

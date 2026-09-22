@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 
 const MESSAGES: Record<string, string> = {
-  created: "Customer created. Share the access link or activation code below so they can set a password.",
+  created: "Customer created. Share the access link below so they can set a password.",
   saved: "Customer details saved.",
   deactivated: "Customer deactivated and signed out of all sessions.",
   reactivated: "Customer reactivated.",
   deleted: "Customer deleted.",
-  link: "New access link and activation code generated. The previous ones no longer work.",
+  link: "New access link generated. The previous one no longer works.",
   approved: "Payment approved. The customer now sees it as successful.",
   rejected: "Payment rejected. The customer has been notified with the reason.",
   refund_started: "Refund initiated. Mark it refunded once the money is sent.",

@@ -45,14 +45,9 @@ export interface Customer {
   inviteCreatedAt?: string;
   inviteExpiresAt?: string;
   inviteOpenedAt?: string;
-  // Activation code: the same single-use credential as the access link, for
-  // setting up the account from the main app (mobile + code). Issued, rotated,
-  // expired and burned together with inviteToken.
-  activationCode?: string;
-  activationAttempts?: number; // wrong codes entered; locked at the limit
   inviteAttempts?: number; // wrong mobile numbers entered on the link
   passwordSetAt?: string;
-  passwordSetVia?: "invite_link" | "activation_code" | "self_signup";
+  passwordSetVia?: "invite_link" | "self_signup";
   activatedAt?: string;
   lastActivityAt?: string;
   lastLoginAt?: string;

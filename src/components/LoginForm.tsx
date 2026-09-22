@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { loginAction } from "@/app/actions";
 import type { FormState } from "@/lib/form";
@@ -60,10 +59,6 @@ export default function LoginForm() {
       <button className="mloan-login-submit" type="submit" disabled={pending}>
         {pending ? "Please wait…" : "Login / Register"}
       </button>
-
-      <Link href="/setup" className="mloan-setup-link">
-        First time? <b>Set up your account</b> with your activation code →
-      </Link>
 
       <p className="mloan-login-signup">
         New here? Signing in with a new number creates your account.

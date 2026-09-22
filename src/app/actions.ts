@@ -4,8 +4,6 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { verifyPassword, newToken } from "@/lib/auth";
 import {
-  ACTIVATION_MAX_ATTEMPTS,
-  completeCustomerActivation,
   completeCustomerInvite,
   createApplication,
   createAuditLog,
@@ -22,7 +20,7 @@ import {
   getPaymentsForOrder,
   getProduct,
   getSettings,
-  recordFailedActivation,
+  INVITE_MAX_ATTEMPTS,
   recordFailedInvite,
   LoanNotPayableError,
   touchCustomer,
@@ -48,6 +46,13 @@ import { inr } from "@/lib/format";
 import { repaymentUpi } from "@/lib/loan";
 import type { FormState } from "@/lib/form";
 
+
+// Accepts "98765 43210", "+91 98765-43210" etc.; compares the bare 10 digits.
+function normalizeMobile(raw: string): string {
+  const compact = raw.replace(/[\s-]/g, "");
+  const match = compact.match(/^(?:\+?91)?([0-9]{10})$/);
+  return match ? match[1] : compact;
+}
 
 // --- Login / register --------------------------------------------------------
 
@@ -79,7 +84,7 @@ export async function loginAction(
     if (!existing.passwordHash) {
       return {
         error:
-          "Your account isn't activated yet. Tap “Set up your account” below and use the activation code we gave you, or open your personal access link.",
+          "Your account isn't activated yet. Open the personal access link we sent you to choose a password.",
       };
     }
     if (!verifyPassword(password, existing.passwordHash, existing.passwordSalt)) {
@@ -132,8 +137,8 @@ export async function logoutAction(): Promise<void> {
 // --- Access link: password setup --------------------------------------------
 
 // Opening an access link proves nothing on its own: the customer must also
-// enter the mobile number the account is registered to, and then sign in
-// normally. Opening the link never signs anybody in.
+// enter the mobile number the account is registered to and choose a password.
+// Opening the link never signs anybody in; completing this form does.
 export async function setPasswordAction(
   _prev: FormState,
   formData: FormData,
@@ -154,7 +159,7 @@ export async function setPasswordAction(
   const customer = await completeCustomerInvite(token, mobile, password);
   if (!customer) {
     const attempts = await recordFailedInvite(token);
-    if (attempts !== undefined && attempts >= ACTIVATION_MAX_ATTEMPTS) {
+    if (attempts !== undefined && attempts >= INVITE_MAX_ATTEMPTS) {
       return {
         error:
           "Too many incorrect attempts. For your security this link no longer works — ask us for a new one.",
@@ -181,77 +186,13 @@ export async function setPasswordAction(
     message: "Your password is set. Sign in with your mobile number and new password.",
   });
 
-  // No session here: the customer signs in with mobile + password. Any session
-  // already on this device (a shared phone) is cleared so the login page can
-  // not bounce them into someone else’s account.
-  await clearSessionCookie();
-  redirect("/login?activated=1");
-}
-
-// --- Main-app account setup: mobile + activation code -----------------------
-
-// Accepts "98765 43210", "+91 98765-43210" etc.; compares the bare 10 digits.
-function normalizeMobile(raw: string): string {
-  const compact = raw.replace(/[\s-]/g, "");
-  const match = compact.match(/^(?:\+?91)?([0-9]{10})$/);
-  return match ? match[1] : compact;
-}
-
-const SETUP_FAILED =
-  "The mobile number or activation code is incorrect, or the code has expired. Check the code we gave you, or ask us for a new one.";
-
-// Activates an operator-created account from the main app. Knowing the mobile
-// number is not enough: the single-use activation code issued with the access
-// link must match, wrong codes are counted, and the code locks after
-// ACTIVATION_MAX_ATTEMPTS. Same customer record as the access link.
-export async function setupAccountAction(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  const mobile = normalizeMobile(field(formData, "mobile"));
-  const code = field(formData, "activationCode").replace(/\D/g, "");
-  const password = String(formData.get("password") ?? "");
-  const confirm = String(formData.get("password_confirm") ?? "");
-
-  if (!MOBILE_RE.test(mobile)) {
-    return { error: "Enter your 10-digit mobile number." };
-  }
-  if (!/^\d{8}$/.test(code)) {
-    return { error: "Enter the 8-digit activation code we gave you." };
-  }
-  const invalid = validatePassword(password, confirm);
-  if (invalid) return { error: invalid };
-
-  const customer = await completeCustomerActivation(mobile, code, password);
-  if (!customer) {
-    const attempts = await recordFailedActivation(mobile);
-    if (attempts !== undefined && attempts >= ACTIVATION_MAX_ATTEMPTS) {
-      return {
-        error:
-          "Too many incorrect codes. For your security this code no longer works — ask us for a new one.",
-      };
-    }
-    return { error: SETUP_FAILED };
-  }
-
-  await createAuditLog({
-    action: "password_setup_completed",
-    userType: "customer",
-    userId: customer.id,
-    userName: customer.name,
-    customerId: customer.id,
-    details: "Password set with activation code on the main app; account activated",
-  });
-  await createNotification({
-    customerId: customer.id,
-    kind: "password_set",
-    title: "Account activated",
-    message: "Your password is set. Sign in with your mobile number and new password.",
-  });
-
-  // No session here either: setting a password is not signing in.
-  await clearSessionCookie();
-  redirect("/login?activated=1");
+  // They proved the link and their mobile number and chose the password, so
+  // sign them in. (Merely opening the link never gets this far.) Any session
+  // already on this device is replaced by theirs.
+  const sessionToken = newToken();
+  await createSession(sessionToken, customer.id);
+  await setSessionCookie(sessionToken);
+  redirect("/home?welcome=1");
 }
 
 // --- Profile -----------------------------------------------------------------
